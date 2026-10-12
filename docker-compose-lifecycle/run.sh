@@ -8,6 +8,14 @@ run() { echo; echo "\$ $*"; eval "$@" 2>&1; echo "[exit $?]"; }
 note() { echo; echo "# $*"; }
 cid() { docker compose ps -q "$1" | cut -c1-12; }
 
+# Pin the Compose release so the transcript is reproducible. The runner's own
+# Compose (2.38.2) mislabels bake-built images; see build-recreate-check.sh.
+COMPOSE_VERSION=v5.6.0
+mkdir -p ~/.docker/cli-plugins
+curl -sSL -o ~/.docker/cli-plugins/docker-compose \
+  "https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-$(uname -m)"
+chmod +x ~/.docker/cli-plugins/docker-compose
+
 WORK=$(mktemp -d)
 cd "$WORK"
 trap 'docker compose down -v --remove-orphans >/dev/null 2>&1; docker rm -f cache-plain >/dev/null 2>&1; docker volume rm plain-data >/dev/null 2>&1; rm -rf "$WORK"' EXIT
@@ -118,22 +126,34 @@ run docker compose exec -T cache redis-cli GET orders
 echo "cache container before: $CACHE_BEFORE  after: $(cid cache)"
 echo "web container before: $WEB_BEFORE  after: $(cid web)"
 
-note "7. same tag, new image: pull alone changes nothing, up -d recreates"
+note "6b. rolling back after the new version wrote its data"
+run "sed -i 's/redis:7.4-alpine/redis:7.2-alpine/' compose.yaml"
+run docker compose up -d --quiet-pull
+sleep 3
+run docker compose ps -a --format "'table {{.Service}}\t{{.Image}}\t{{.Status}}'"
+run "docker compose logs cache 2>&1 | grep -iE 'rdb|fatal|error' | head -3"
+run "sed -i 's/redis:7.2-alpine/redis:7.4-alpine/' compose.yaml"
+run docker compose up -d
+sleep 2
+run docker compose exec -T cache redis-cli GET orders
+
+note "7. same tag, new image: up -d recreates only when the tag points at a new image"
 note "simulated: a local tag that we re-point, as a registry push to the same tag would"
-run docker tag redis:7.2-alpine shop/cache:stable
+run docker tag redis:7.4-alpine shop/cache:stable
 run "sed -i 's#redis:7.4-alpine#shop/cache:stable#' compose.yaml"
 run docker compose up -d
 sleep 2
 run docker compose exec -T cache redis-server --version
-run docker tag redis:7.4-alpine shop/cache:stable
-note "the tag now points at 7.4, the running container still runs 7.2"
+run docker pull -q redis:8.0-alpine
+run docker tag redis:8.0-alpine shop/cache:stable
+note "the tag now points at 8.0, the running container still runs 7.4"
 run docker compose exec -T cache redis-server --version
 run docker compose up -d
 sleep 2
 run docker compose exec -T cache redis-server --version
 run docker compose exec -T cache redis-cli GET orders
 note "a real pull of a tag that has not changed"
-run "sed -i 's#shop/cache:stable#redis:7.4-alpine#' compose.yaml"
+run "sed -i 's#shop/cache:stable#redis:8.0-alpine#' compose.yaml"
 run docker compose up -d
 run docker compose pull cache
 run docker compose up -d

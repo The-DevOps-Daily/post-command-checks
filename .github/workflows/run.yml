@@ -1,0 +1,22 @@
+name: run
+on:
+  workflow_dispatch:
+    inputs:
+      check:
+        description: Folder to run
+        required: true
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ${{ inputs.check }}
+        run: |
+          cd "${{ inputs.check }}"
+          bash run.sh 2>&1 | tee "$GITHUB_WORKSPACE/output.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ inputs.check }}-output
+          path: output.log

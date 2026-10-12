@@ -1,0 +1,218 @@
+Current runner version: '2.337.0'
+##[group]Runner Image Provisioner
+Hosted Compute Agent
+Version: 20261002.596
+Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+Build Date: 2026-10-02T22:28:27Z
+Worker ID: {bb447f01-224c-4303-9890-8406d2db2473}
+Region: eastus
+Cloud: Azure
+##[endgroup]
+##[group]Operating System
+Ubuntu
+24.04.5
+LTS
+##[endgroup]
+##[group]Runner Image
+Image: ubuntu-24.04
+Version: 20261004.327.1
+Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+##[endgroup]
+##[group]GITHUB_TOKEN Permissions
+Actions: write
+ArtifactMetadata: write
+Attestations: write
+Checks: write
+CodeQuality: write
+Contents: write
+CopilotRequests: write
+Deployments: write
+Discussions: write
+Drives: write
+Issues: write
+Metadata: read
+Models: read
+Packages: write
+Pages: write
+PullRequests: write
+RepositoryProjects: write
+SecurityEvents: write
+Statuses: write
+VulnerabilityAlerts: read
+##[endgroup]
+Secret source: Actions
+Cache mode: write
+Prepare workflow directory
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Complete job name: run
+##[group]Run actions/checkout@v4
+with:
+  repository: The-DevOps-Daily/post-command-checks
+  token: ***
+  ssh-strict: true
+  ssh-user: git
+  persist-credentials: true
+  clean: true
+  sparse-checkout-cone-mode: true
+  fetch-depth: 1
+  fetch-tags: false
+  show-progress: true
+  lfs: false
+  submodules: false
+  set-safe-directory: true
+  allow-unsafe-pr-checkout: false
+##[endgroup]
+Syncing repository: The-DevOps-Daily/post-command-checks
+##[group]Getting Git version info
+Working directory is '/home/runner/work/post-command-checks/post-command-checks'
+[command]/usr/bin/git version
+git version 2.55.0
+##[endgroup]
+Temporarily overriding HOME='/home/runner/work/_temp/17659e77-bf5c-48d1-9cbc-6cd6cb98582e' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/post-command-checks/post-command-checks
+Deleting the contents of '/home/runner/work/post-command-checks/post-command-checks'
+##[group]Initializing the repository
+[command]/usr/bin/git init /home/runner/work/post-command-checks/post-command-checks
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+Initialized empty Git repository in /home/runner/work/post-command-checks/post-command-checks/.git/
+[command]/usr/bin/git remote add origin https://github.com/The-DevOps-Daily/post-command-checks
+##[endgroup]
+##[group]Disabling automatic garbage collection
+[command]/usr/bin/git config --local gc.auto 0
+##[endgroup]
+##[group]Setting up auth
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+[command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+##[endgroup]
+##[group]Fetching the repository
+[command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +53828d00569c714bb8e4265f34d945c389f8ce22:refs/remotes/origin/main
+From https://github.com/The-DevOps-Daily/post-command-checks
+ * [new ref]         53828d00569c714bb8e4265f34d945c389f8ce22 -> origin/main
+##[endgroup]
+##[group]Determining the checkout info
+##[endgroup]
+[command]/usr/bin/git sparse-checkout disable
+[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+##[group]Checking out the ref
+[command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Switched to a new branch 'main'
+branch 'main' set up to track 'origin/main'.
+##[endgroup]
+[command]/usr/bin/git log -1 --format=%H
+53828d00569c714bb8e4265f34d945c389f8ce22
+##[group]Run cd "docker-compose-lifecycle"
+[36;1mcd "docker-compose-lifecycle"[0m
+[36;1mbash "build-recreate-check.sh" 2>&1 | tee "$GITHUB_WORKSPACE/output.log"[0m
+shell: /usr/bin/bash -e {0}
+##[endgroup]
+== runner default: 2.38.2
+  up -d (first)                      serves=v1  container=4abe629a2201 container_image=40ba7201caab tag_image=40ba7201caab label=
+     Container rc-web-1  Started
+  up -d (nothing changed)            serves=v1  container=6e5c9d8d9581 container_image=40ba7201caab tag_image=40ba7201caab label=40ba7201caab
+     Container rc-web-1  Running
+  edit, up -d --build                serves=v1  container=6e5c9d8d9581 container_image=40ba7201caab tag_image=25d66648408c label=40ba7201caab
+     Container rc-web-1  Started
+  edit, up -d --build                serves=v3  container=c2da791d7a46 container_image=bb126033e0fd tag_image=bb126033e0fd label=25d66648408c
+     Container rc-web-1  Started
+  up -d (nothing changed)            serves=v3  container=f41c9b819841 container_image=bb126033e0fd tag_image=bb126033e0fd label=bb126033e0fd
+     Container rc-web-1  Started
+  edit, build, then up -d            serves=v4  container=a9072a94fd30 container_image=a3b127c10ee4 tag_image=a3b127c10ee4 label=a3b127c10ee4
+== COMPOSE_BAKE=false: 2.38.2
+  up -d (first)                      serves=v1  container=7d4301c96b27 container_image=72f6bed94022 tag_image=72f6bed94022 label=72f6bed94022
+     Container rc-web-1  Running
+  up -d (nothing changed)            serves=v1  container=7d4301c96b27 container_image=72f6bed94022 tag_image=72f6bed94022 label=72f6bed94022
+     Container rc-web-1  Started
+  edit, up -d --build                serves=v2  container=7ecff0edda55 container_image=ac25791f68e5 tag_image=ac25791f68e5 label=ac25791f68e5
+     Container rc-web-1  Started
+  edit, up -d --build                serves=v3  container=db16983a8a2b container_image=6ab2eb613aff tag_image=6ab2eb613aff label=6ab2eb613aff
+     Container rc-web-1  Running
+  up -d (nothing changed)            serves=v3  container=db16983a8a2b container_image=6ab2eb613aff tag_image=6ab2eb613aff label=6ab2eb613aff
+     Container rc-web-1  Started
+  edit, build, then up -d            serves=v4  container=7597606a0aa7 container_image=f509a41edb2d tag_image=f509a41edb2d label=f509a41edb2d
+== latest release v5.6.0: 5.6.0
+  up -d (first)                      serves=v1  container=7accb32c3224 container_image=9349cbe5d353 tag_image=9349cbe5d353 label=9349cbe5d353
+     Container rc-web-1 Running 
+  up -d (nothing changed)            serves=v1  container=7accb32c3224 container_image=9349cbe5d353 tag_image=9349cbe5d353 label=9349cbe5d353
+     Container rc-web-1 Started 
+  edit, up -d --build                serves=v2  container=c0bd36804ad1 container_image=038f3f280c27 tag_image=038f3f280c27 label=038f3f280c27
+     Container rc-web-1 Started 
+  edit, up -d --build                serves=v3  container=510c875b534d container_image=a0dc4af3c02f tag_image=a0dc4af3c02f label=a0dc4af3c02f
+     Container rc-web-1 Running 
+  up -d (nothing changed)            serves=v3  container=510c875b534d container_image=a0dc4af3c02f tag_image=a0dc4af3c02f label=a0dc4af3c02f
+ Image rc-web Built 
+     Container rc-web-1 Started 
+  edit, build, then up -d            serves=v4  container=68e65760aacf container_image=49b73825df84 tag_image=49b73825df84 label=49b73825df84
+== latest release v5.6.0, COMPOSE_BAKE=false: 5.6.0
+  up -d (first)                      serves=v1  container=c2e2269dea2f container_image=9349cbe5d353 tag_image=9349cbe5d353 label=9349cbe5d353
+     Container rc-web-1 Running 
+  up -d (nothing changed)            serves=v1  container=c2e2269dea2f container_image=9349cbe5d353 tag_image=9349cbe5d353 label=9349cbe5d353
+     Container rc-web-1 Started 
+  edit, up -d --build                serves=v2  container=6ae7ba3a747c container_image=038f3f280c27 tag_image=038f3f280c27 label=038f3f280c27
+     Container rc-web-1 Started 
+  edit, up -d --build                serves=v3  container=c0089e63d53e container_image=a0dc4af3c02f tag_image=a0dc4af3c02f label=a0dc4af3c02f
+     Container rc-web-1 Running 
+  up -d (nothing changed)            serves=v3  container=c0089e63d53e container_image=a0dc4af3c02f tag_image=a0dc4af3c02f label=a0dc4af3c02f
+ Image rc-web Built 
+     Container rc-web-1 Started 
+  edit, build, then up -d            serves=v4  container=9d7ee904537a container_image=49b73825df84 tag_image=49b73825df84 label=49b73825df84
+##[group]Run actions/upload-artifact@v4
+with:
+  name: docker-compose-lifecycle-output
+  path: output.log
+  if-no-files-found: warn
+  compression-level: 6
+  overwrite: false
+  include-hidden-files: false
+##[endgroup]
+(node:8382) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+With the provided path, there will be 1 file uploaded
+Artifact name is valid!
+Root directory input is valid!
+Beginning upload of artifact content to blob storage
+(node:8382) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Uploaded bytes 796
+Finished uploading artifact content to blob storage!
+SHA256 digest of uploaded artifact zip is e560cfbd5c17ea09f8d86b826ccbf480643358961ce10cb61a0cc6cafa5d0fba
+Finalizing artifact upload
+Artifact docker-compose-lifecycle-output.zip successfully finalized. Artifact ID 11747574413
+Artifact docker-compose-lifecycle-output has been successfully uploaded! Final size is 796 bytes. Artifact ID is 11747574413
+Artifact download URL: https://github.com/The-DevOps-Daily/post-command-checks/actions/runs/38250445430/artifacts/11747574413
+Post job cleanup.
+[command]/usr/bin/git version
+git version 2.55.0
+Temporarily overriding HOME='/home/runner/work/_temp/20c6cb0f-d06d-42c2-919c-f14eee5670ac' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+[command]/usr/bin/git config --global --add safe.directory /home/runner/work/post-command-checks/post-command-checks
+[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+http.https://github.com/.extraheader
+[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Cleaning up orphan processes
+##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

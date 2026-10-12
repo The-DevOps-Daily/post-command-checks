@@ -1,0 +1,689 @@
+
+# versions
+
+$ docker version --format 'Docker {{.Server.Version}}'
+Docker 28.0.4
+[exit 0]
+
+$ docker compose version
+Docker Compose version v5.6.0
+[exit 0]
+
+# first start: builds web, pulls cache
+
+$ docker compose up -d --quiet-pull
+ Image redis:7.2-alpine Pulling 
+ Image redis:7.2-alpine Pulled 
+ Image shop-web Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 472B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 119B 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.13-alpine
+#3 ...
+
+#4 [auth] library/python:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.13-alpine
+#3 DONE 0.9s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 384B done
+#6 DONE 0.0s
+
+#7 [1/3] FROM docker.io/library/python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+#7 resolve docker.io/library/python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a done
+#7 extracting sha256:48f6a258842734fe23e0e4c69db9996cbaefd41c1cde2372b95449f9fc5601eb
+#7 sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a 10.30kB / 10.30kB done
+#7 sha256:ba27df8b6499cc3756cff167690f3fcb5321faa1703b3a914df5f4fdadb32f05 1.74kB / 1.74kB done
+#7 sha256:050f6d1f4e5f89af62e03f6fcd1c06be2a401339b3694adc4c0a2850d9d8b1e7 5.29kB / 5.29kB done
+#7 sha256:48f6a258842734fe23e0e4c69db9996cbaefd41c1cde2372b95449f9fc5601eb 416.27kB / 416.27kB 0.1s done
+#7 sha256:6f4c23997e2db272b9d27917c421c0322c90ce90f0b4eeecd39ce268bdb688d0 0B / 15.24MB 0.1s
+#7 sha256:82c48d7f22df9ea2f3393a3daf83a7abb5e933e5fb7f4d1b701dc8f71ebff248 0B / 247B 0.1s
+#7 extracting sha256:48f6a258842734fe23e0e4c69db9996cbaefd41c1cde2372b95449f9fc5601eb 0.2s done
+#7 sha256:6f4c23997e2db272b9d27917c421c0322c90ce90f0b4eeecd39ce268bdb688d0 15.24MB / 15.24MB 0.2s done
+#7 sha256:82c48d7f22df9ea2f3393a3daf83a7abb5e933e5fb7f4d1b701dc8f71ebff248 247B / 247B 0.2s done
+#7 extracting sha256:6f4c23997e2db272b9d27917c421c0322c90ce90f0b4eeecd39ce268bdb688d0 0.1s
+#7 extracting sha256:6f4c23997e2db272b9d27917c421c0322c90ce90f0b4eeecd39ce268bdb688d0 0.6s done
+#7 extracting sha256:82c48d7f22df9ea2f3393a3daf83a7abb5e933e5fb7f4d1b701dc8f71ebff248 done
+#7 DONE 1.1s
+
+#8 [2/3] WORKDIR /app
+#8 DONE 0.0s
+
+#9 [3/3] COPY app.py .
+#9 DONE 0.0s
+
+#10 exporting to image
+#10 exporting layers
+#10 exporting layers 0.3s done
+#10 writing image sha256:1f0e2c53d9796cae80839b8244a22d0cfc0c2587f791d3504c4c78092ee14e3a done
+#10 naming to docker.io/library/shop-web done
+#10 DONE 0.3s
+
+#11 resolving provenance for metadata file
+#11 DONE 0.0s
+ Image shop-web Built 
+ Network shop_default Creating 
+ Network shop_default Creating 
+ Volume shop_cache-data Creating 
+ Volume shop_cache-data Creating 
+ Volume shop_cache-data Created 
+ Volume shop_cache-data Created 
+ Network shop_default Created 
+ Network shop_default Created 
+ Container shop-cache-1 Creating 
+ Container shop-cache-1 Created 
+ Container shop-web-1 Creating 
+ Container shop-web-1 Created 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ curl -s localhost:8000
+v1 greeting=hello
+[exit 0]
+
+$ docker compose ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}'
+SERVICE   IMAGE              STATUS
+cache     redis:7.2-alpine   Up 1 second
+web       shop-web           Up 1 second
+[exit 0]
+
+# 1. code change: edit app.py, then try restart, up -d, up -d --build
+
+$ sed -i 's/MSG = "v1"/MSG = "v2"/' app.py
+[exit 0]
+
+$ docker compose restart web
+ Container shop-web-1 Restarting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ curl -s localhost:8000
+v1 greeting=hello
+[exit 0]
+web container before: b22f441fd3e0  after restart: b22f441fd3e0
+
+$ docker compose up -d
+ Container shop-cache-1 Running 
+ Container shop-web-1 Running 
+[exit 0]
+
+$ curl -s localhost:8000
+v1 greeting=hello
+[exit 0]
+
+$ docker compose up -d --build web
+ Image shop-web Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 472B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 119B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.13-alpine
+#3 DONE 0.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/3] FROM docker.io/library/python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 384B done
+#6 DONE 0.0s
+
+#7 [2/3] WORKDIR /app
+#7 CACHED
+
+#8 [3/3] COPY app.py .
+#8 DONE 0.0s
+
+#9 exporting to image
+#9 exporting layers
+#9 exporting layers 0.5s done
+#9 writing image sha256:860c697da9610c726802e650617083d876247b3759ae60a13271fb9e249ada4c done
+#9 naming to docker.io/library/shop-web done
+#9 DONE 0.5s
+
+#10 resolving provenance for metadata file
+#10 DONE 0.0s
+ Image shop-web Built 
+ Container shop-cache-1 Running 
+ Container shop-web-1 Recreate 
+ Container shop-web-1 Recreated 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ curl -s localhost:8000
+v2 greeting=hello
+[exit 0]
+web container before: b22f441fd3e0  after up --build: 1a0c5e4debee
+
+# 2. environment change in compose.yaml: restart vs up -d
+
+$ sed -i 's/GREETING: hello/GREETING: hi/' compose.yaml
+[exit 0]
+
+$ docker compose restart web
+ Container shop-web-1 Restarting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ curl -s localhost:8000
+v2 greeting=hello
+[exit 0]
+
+$ docker compose up -d
+ Container shop-cache-1 Running 
+ Container shop-web-1 Recreate 
+ Container shop-web-1 Recreated 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ curl -s localhost:8000
+v2 greeting=hi
+[exit 0]
+
+# 3. nothing changed: up -d leaves it, --force-recreate replaces it
+
+$ docker compose up -d
+ Container shop-cache-1 Running 
+ Container shop-web-1 Running 
+[exit 0]
+web container before: f3d199d66fa0  after up -d: f3d199d66fa0
+
+$ docker compose up -d --force-recreate web
+ Container shop-cache-1 Running 
+ Container shop-web-1 Recreate 
+ Container shop-web-1 Recreated 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+web container before: f3d199d66fa0  after --force-recreate: 424bff50a255
+
+# 4. dependencies: up web starts a stopped cache, --no-deps does not
+
+$ docker compose stop cache web
+ Container shop-web-1 Stopping 
+ Container shop-web-1 Stopped 
+ Container shop-cache-1 Stopping 
+ Container shop-cache-1 Stopped 
+[exit 0]
+
+$ docker compose up -d web
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ docker compose ps --format 'table {{.Service}}\t{{.Status}}'
+SERVICE   STATUS
+cache     Up Less than a second
+web       Up Less than a second
+[exit 0]
+
+$ docker compose stop cache web
+ Container shop-web-1 Stopping 
+ Container shop-web-1 Stopped 
+ Container shop-cache-1 Stopping 
+ Container shop-cache-1 Stopped 
+[exit 0]
+
+$ docker compose up -d --no-deps web
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ docker compose ps -a --format 'table {{.Service}}\t{{.Status}}'
+SERVICE   STATUS
+cache     Exited (0) Less than a second ago
+web       Up Less than a second
+[exit 0]
+
+$ docker compose up -d
+ Container shop-web-1 Running 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+[exit 0]
+
+# 5. build cache: normal build vs --no-cache
+
+$ docker compose build web 2>&1 | grep -E 'CACHED|DONE|exporting' | head -8
+#1 DONE 0.0s
+#2 DONE 0.0s
+#3 DONE 0.3s
+#4 DONE 0.0s
+#5 DONE 0.0s
+#6 DONE 0.0s
+#7 CACHED
+#8 CACHED
+[exit 0]
+
+$ docker compose build --no-cache web 2>&1 | grep -E 'CACHED|DONE|exporting' | head -8
+#1 DONE 0.0s
+#2 DONE 0.0s
+#3 DONE 0.1s
+#4 DONE 0.0s
+#5 DONE 0.0s
+#6 CACHED
+#7 DONE 0.0s
+#8 DONE 0.0s
+[exit 0]
+
+# 6. image upgrade with a new tag: data in the named volume survives
+
+$ docker compose exec -T cache redis-cli SET orders 42
+OK
+[exit 0]
+
+$ docker compose exec -T cache redis-server --version
+Redis server v=7.2.16 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=f0a29854ae29bd4d
+[exit 0]
+
+$ sed -i 's/redis:7.2-alpine/redis:7.4-alpine/' compose.yaml
+[exit 0]
+
+$ docker compose up -d --quiet-pull
+ Image redis:7.4-alpine Pulling 
+ Image redis:7.4-alpine Pulled 
+ Container shop-cache-1 Recreate 
+ Container shop-cache-1 Recreated 
+ Container shop-web-1 Recreate 
+ Container shop-web-1 Recreated 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ docker compose exec -T cache redis-server --version
+Redis server v=7.4.11 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=40ff01a501d8e4b6
+[exit 0]
+
+$ docker compose exec -T cache redis-cli GET orders
+42
+[exit 0]
+cache container before: bccc4f6854c2  after: 56560bbefe60
+web container before: 424bff50a255  after: cac43380f0d1
+
+# 6b. rolling back after the new version wrote its data
+
+$ sed -i 's/redis:7.4-alpine/redis:7.2-alpine/' compose.yaml
+[exit 0]
+
+$ docker compose up -d --quiet-pull
+ Container shop-web-1 Running 
+ Container shop-cache-1 Recreate 
+ Container shop-cache-1 Recreated 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+[exit 0]
+
+$ docker compose ps -a --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}'
+SERVICE   IMAGE              STATUS
+cache     redis:7.2-alpine   Exited (1) 3 seconds ago
+web       shop-web           Up 5 seconds
+[exit 0]
+
+$ docker compose logs cache 2>&1 | grep -iE 'rdb|fatal|error' | head -3
+cache-1  | 1:M 12 Oct 2026 12:47:42.168 # Can't handle RDB format version 12
+cache-1  | 1:M 12 Oct 2026 12:47:42.168 # Fatal error loading the DB, check server logs. Exiting.
+[exit 0]
+
+$ sed -i 's/redis:7.2-alpine/redis:7.4-alpine/' compose.yaml
+[exit 0]
+
+$ docker compose up -d
+ Container shop-web-1 Running 
+ Container shop-cache-1 Recreate 
+ Container shop-cache-1 Recreated 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+[exit 0]
+
+$ docker compose exec -T cache redis-cli GET orders
+42
+[exit 0]
+
+# 7. same tag, new image: up -d recreates only when the tag points at a new image
+
+# simulated: a local tag that we re-point, as a registry push to the same tag would
+
+$ docker tag redis:7.4-alpine shop/cache:stable
+[exit 0]
+
+$ sed -i 's#redis:7.4-alpine#shop/cache:stable#' compose.yaml
+[exit 0]
+
+$ docker compose up -d
+ Container shop-web-1 Running 
+ Container shop-cache-1 Recreate 
+ Container shop-cache-1 Recreated 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+[exit 0]
+
+$ docker compose exec -T cache redis-server --version
+Redis server v=7.4.11 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=40ff01a501d8e4b6
+[exit 0]
+
+$ docker pull -q redis:8.0-alpine
+docker.io/library/redis:8.0-alpine
+[exit 0]
+
+$ docker tag redis:8.0-alpine shop/cache:stable
+[exit 0]
+
+# the tag now points at 8.0, the running container still runs 7.4
+
+$ docker compose exec -T cache redis-server --version
+Redis server v=7.4.11 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=40ff01a501d8e4b6
+[exit 0]
+
+$ docker compose up -d
+ Container shop-web-1 Running 
+ Container shop-cache-1 Recreate 
+ Container shop-cache-1 Recreated 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+[exit 0]
+
+$ docker compose exec -T cache redis-server --version
+Redis server v=8.0.6 sha=00000000:1 malloc=jemalloc-5.3.0 bits=64 build=43e27d09ac6c0bc2
+[exit 0]
+
+$ docker compose exec -T cache redis-cli GET orders
+42
+[exit 0]
+
+# a real pull of a tag that has not changed
+
+$ sed -i 's#shop/cache:stable#redis:8.0-alpine#' compose.yaml
+[exit 0]
+
+$ docker compose up -d
+ Container shop-web-1 Running 
+ Container shop-cache-1 Recreate 
+ Container shop-cache-1 Recreated 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+[exit 0]
+
+$ docker compose pull cache
+ Image redis:8.0-alpine Pulling 
+ Image redis:8.0-alpine Pulled 
+[exit 0]
+
+$ docker compose up -d
+ Container shop-web-1 Running 
+ Container shop-cache-1 Running 
+[exit 0]
+
+# 8. plain docker run: pull, stop, rm, run with the same volume
+
+$ docker run -d --name cache-plain -v plain-data:/data redis:7.2-alpine
+6e5c28d747c8ca098c8138bc171d7cb21ff918ff76ef3aa61f98dc9fa191f3e9
+[exit 0]
+
+$ docker exec cache-plain redis-cli SET orders 42
+OK
+[exit 0]
+
+$ docker pull -q redis:7.4-alpine
+docker.io/library/redis:7.4-alpine
+[exit 0]
+
+$ docker stop cache-plain
+cache-plain
+[exit 0]
+
+$ docker rm cache-plain
+cache-plain
+[exit 0]
+
+$ docker run -d --name cache-plain -v plain-data:/data redis:7.4-alpine
+1abc568dc85ae41113f0f8c5e6b67fe928c7490d31dfb219f75173c5a86780e2
+[exit 0]
+
+$ docker exec cache-plain redis-server --version
+Redis server v=7.4.11 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=40ff01a501d8e4b6
+[exit 0]
+
+$ docker exec cache-plain redis-cli GET orders
+42
+[exit 0]
+
+# 9. shells
+
+$ docker compose exec -T web sh -c 'hostname; id -un; ls /app'
+cac43380f0d1
+root
+app.py
+[exit 0]
+
+$ docker compose exec -T web bash
+OCI runtime exec failed: exec failed: unable to start container process: exec: "bash": executable file not found in $PATH
+[exit 127]
+
+$ docker compose stop web
+ Container shop-web-1 Stopping 
+ Container shop-web-1 Stopped 
+[exit 0]
+
+$ docker compose exec -T web sh
+service "web" is not running
+[exit 1]
+
+$ docker compose run --rm -T web sh -c 'echo new container: $(hostname); cat /app/app.py | head -2'
+ Container shop-cache-1 Running 
+ Container shop-web-run-9168a2cd8c79 Creating 
+ Container shop-web-run-9168a2cd8c79 Created 
+new container: f0932887561f
+import http.server, os
+MSG = "v2"
+[exit 0]
+
+$ docker compose up -d
+ Container shop-cache-1 Running 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+# 10. a container that crashes on start: exec cannot reach it, run --entrypoint can
+
+$ sed -i 's/import http.server, os/import http.server, os, missing_module/' app.py
+[exit 0]
+
+$ docker compose up -d --build web
+ Image shop-web Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 472B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 119B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.13-alpine
+#3 DONE 0.3s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/3] FROM docker.io/library/python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 400B done
+#6 DONE 0.0s
+
+#7 [2/3] WORKDIR /app
+#7 CACHED
+
+#8 [3/3] COPY app.py .
+#8 DONE 0.0s
+
+#9 exporting to image
+#9 exporting layers
+#9 exporting layers 1.0s done
+#9 writing image sha256:8e1886590646f71eafdd65bb15348f34e281605c8e77904a27838b1f11755c1a done
+#9 naming to docker.io/library/shop-web done
+#9 DONE 1.0s
+
+#10 resolving provenance for metadata file
+#10 DONE 0.0s
+ Image shop-web Built 
+ Container shop-cache-1 Running 
+ Container shop-web-1 Recreate 
+ Container shop-web-1 Recreated 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ docker compose ps -a --format 'table {{.Service}}\t{{.Status}}'
+SERVICE   STATUS
+cache     Up 31 seconds
+web       Exited (1) 2 seconds ago
+[exit 0]
+
+$ docker compose exec -T web sh
+service "web" is not running
+[exit 1]
+
+$ docker compose logs --tail 3 web
+web-1  |   File "/app/app.py", line 1, in <module>
+web-1  |     import http.server, os, missing_module
+web-1  | ModuleNotFoundError: No module named 'missing_module'
+[exit 0]
+
+$ docker compose run --rm -T --no-deps --entrypoint sh web -c 'head -1 /app/app.py'
+ Container shop-web-run-0c58bfce4547 Creating 
+ Container shop-web-run-0c58bfce4547 Created 
+import http.server, os, missing_module
+[exit 0]
+
+$ sed -i 's/, missing_module//' app.py
+[exit 0]
+
+$ docker compose up -d --build web
+ Image shop-web Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 472B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 119B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.13-alpine
+#3 DONE 0.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/3] FROM docker.io/library/python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 384B done
+#6 DONE 0.0s
+
+#7 [2/3] WORKDIR /app
+#7 CACHED
+
+#8 [3/3] COPY app.py .
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 writing image sha256:61a03bdb9e2cdece5fcc5d0a2241a5c588445fcd881c7c99293af3f1a49271a1 done
+#9 naming to docker.io/library/shop-web done
+#9 DONE 0.0s
+
+#10 resolving provenance for metadata file
+#10 DONE 0.0s
+ Image shop-web Built 
+ Container shop-cache-1 Running 
+ Container shop-web-1 Recreate 
+ Container shop-web-1 Recreated 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+# 11. down keeps named volumes, down -v removes them
+
+$ docker compose down
+ Container shop-web-1 Stopping 
+ Container shop-web-1 Stopped 
+ Container shop-web-1 Removing 
+ Container shop-web-1 Removed 
+ Container shop-cache-1 Stopping 
+ Container shop-cache-1 Stopped 
+ Container shop-cache-1 Removing 
+ Container shop-cache-1 Removed 
+ Network shop_default Removing 
+ Network shop_default Removed 
+[exit 0]
+
+$ docker volume ls --filter name=shop_cache-data --format '{{.Name}}'
+shop_cache-data
+[exit 0]
+
+$ docker compose up -d
+ Network shop_default Creating 
+ Network shop_default Creating 
+ Network shop_default Created 
+ Network shop_default Created 
+ Container shop-cache-1 Creating 
+ Container shop-cache-1 Created 
+ Container shop-web-1 Creating 
+ Container shop-web-1 Created 
+ Container shop-cache-1 Starting 
+ Container shop-cache-1 Started 
+ Container shop-web-1 Starting 
+ Container shop-web-1 Started 
+[exit 0]
+
+$ docker compose exec -T cache redis-cli GET orders
+42
+[exit 0]
+
+$ docker compose down -v
+ Container shop-web-1 Stopping 
+ Container shop-web-1 Stopped 
+ Container shop-web-1 Removing 
+ Container shop-web-1 Removed 
+ Container shop-cache-1 Stopping 
+ Container shop-cache-1 Stopped 
+ Container shop-cache-1 Removing 
+ Container shop-cache-1 Removed 
+ Volume shop_cache-data Removing 
+ Network shop_default Removing 
+ Volume shop_cache-data Removed 
+ Network shop_default Removed 
+[exit 0]
+
+$ docker volume ls --filter name=shop_cache-data --format '{{.Name}}'
+[exit 0]

@@ -5,6 +5,9 @@ on:
       check:
         description: Folder to run
         required: true
+      script:
+        description: Script in that folder
+        default: run.sh
 jobs:
   run:
     runs-on: ubuntu-24.04
@@ -14,7 +17,7 @@ jobs:
       - name: Run ${{ inputs.check }}
         run: |
           cd "${{ inputs.check }}"
-          bash run.sh 2>&1 | tee "$GITHUB_WORKSPACE/output.log"
+          bash "${{ inputs.script }}" 2>&1 | tee "$GITHUB_WORKSPACE/output.log"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

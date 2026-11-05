@@ -1,0 +1,33 @@
+
+$ docker version --format 'client {{.Client.Version}}, engine {{.Server.Version}}'
+client 28.0.4, engine 28.0.4
+[exit 0]
+
+# a. --sig-proxy=false: SIGTERM and SIGINT to the attach client
+
+$ timeout -s TERM -k 3 4 docker attach --sig-proxy=false web; echo "[attach exit $?]"; state web
+docker-attach-2.sh: line 9:  2524 Killed                  timeout -s TERM -k 3 4 docker attach --sig-proxy=false web
+[attach exit 137]
+running exit=0
+[exit 0]
+
+$ timeout -s INT -k 3 4 docker attach --sig-proxy=false web; echo "[attach exit $?]"; state web
+docker-attach-2.sh: line 9:  2542 Killed                  timeout -s INT -k 3 4 docker attach --sig-proxy=false web
+[attach exit 137]
+running exit=0
+[exit 0]
+
+# b. docker logs -f, then Ctrl+C
+
+$ (sleep 2; printf '\x03'; sleep 3) | timeout -s KILL 8 script -qec 'docker logs -f --tail 1 web' /dev/null; echo "[logs exit $?]"; state web
+2026/11/05 17:04:43 [notice] 1#1: start worker process 32
+^C[logs exit 130]
+running exit=0
+[exit 0]
+
+# c. exec does not touch the main process
+
+$ docker exec web sh -c 'exit 3'; echo "exec exit $?"; state web
+exec exit 3
+running exit=0
+[exit 0]

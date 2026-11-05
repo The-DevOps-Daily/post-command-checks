@@ -1,0 +1,96 @@
+
+$ kind version
+kind v0.33.0 go1.26.7 linux/amd64
+[exit 0]
+
+$ kind create cluster --name batch2 --wait 120s
+Creating cluster "batch2" ...
+ • Ensuring node image (kindest/node:v1.37.0) 🖼️  ...
+ ✓ Ensuring node image (kindest/node:v1.37.0) 🖼️
+ • Preparing nodes 📦   ...
+ ✓ Preparing nodes 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+ • Waiting ≤ 2m0s for control-plane = Ready ⏳  ...
+ ✓ Waiting ≤ 2m0s for control-plane = Ready ⏳
+ • Ready after 17s 💚
+Set kubectl context to "kind-batch2"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-batch2
+
+Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
+[exit 0]
+
+$ kubectl version
+Client Version: v1.37.1
+Kustomize Version: v5.8.1
+Server Version: v1.37.0
+[exit 0]
+
+# decode one key, then all keys
+
+$ kubectl create secret generic db-credentials --from-literal=username=app --from-literal=password='s3cr3t-Pa55'
+secret/db-credentials created
+[exit 0]
+
+$ kubectl get secret db-credentials -o jsonpath='{.data.password}' | base64 -d; echo
+s3cr3t-Pa55
+[exit 0]
+
+$ kubectl get secret db-credentials -o go-template='{{range $k, $v := .data}}{{$k}}={{$v | base64decode}}{{"\n"}}{{end}}'
+password=s3cr3t-Pa55
+username=app
+[exit 0]
+
+$ kubectl get secret db-credentials -o json | jq -r '.data | map_values(@base64d)'
+{
+  "password": "s3cr3t-Pa55",
+  "username": "app"
+}
+[exit 0]
+
+# the trailing newline from echo
+
+$ echo 's3cr3t-Pa55' > password.txt && kubectl create secret generic db-file --from-file=password=password.txt
+secret/db-file created
+[exit 0]
+
+$ kubectl get secret db-file -o jsonpath='{.data.password}'; echo
+czNjcjN0LVBhNTUK
+[exit 0]
+
+$ kubectl get secret db-file -o jsonpath='{.data.password}' | base64 -d | od -c
+0000000   s   3   c   r   3   t   -   P   a   5   5  \n
+0000014
+[exit 0]
+
+$ echo 's3cr3t-Pa55' | base64; printf '%s' 's3cr3t-Pa55' | base64
+czNjcjN0LVBhNTUK
+czNjcjN0LVBhNTU=
+[exit 0]
+
+$ printf '%s' 's3cr3t-Pa55' > password.txt && kubectl create secret generic db-file2 --from-file=password=password.txt
+secret/db-file2 created
+[exit 0]
+
+$ kubectl get secret db-file2 -o jsonpath='{.data.password}' | base64 -d | od -c
+0000000   s   3   c   r   3   t   -   P   a   5   5
+0000013
+[exit 0]
+
+# stringData is stored as data
+
+$ kubectl apply -f secret.yaml
+secret/api-token created
+[exit 0]
+
+$ kubectl get secret api-token -o jsonpath='{.data}'; echo
+{"token":"dG9rLTEyMw=="}
+[exit 0]

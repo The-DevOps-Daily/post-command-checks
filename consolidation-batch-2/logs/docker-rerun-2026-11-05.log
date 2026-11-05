@@ -1,0 +1,168 @@
+
+$ docker version --format 'client {{.Client.Version}}, engine {{.Server.Version}}'
+client 28.0.4, engine 28.0.4
+[exit 0]
+
+# 1. delete all local images
+
+$ docker tag alpine:3.22 myapp:dev
+[exit 0]
+
+$ docker run -d --name keep nginx:1.30
+75c0a0426360a58f7ab78c43e2c672cc579722eaa5c79b81c39baaaa801b0675
+[exit 0]
+
+$ docker create --name stopped hello-world
+3aff971970207a3554dca8d06be7e0af6c48e7da425e5f3fe4706fca47430ea2
+[exit 0]
+
+$ docker image ls
+REPOSITORY    TAG       IMAGE ID       CREATED        SIZE
+nginx         1.30      53d8f012a1a7   9 hours ago    163MB
+alpine        3.22      24ab38714e94   2 weeks ago    8.3MB
+myapp         dev       24ab38714e94   2 weeks ago    8.3MB
+hello-world   latest    e2ac70e7319a   7 months ago   10.1kB
+[exit 0]
+
+$ docker rmi $(docker images -q)
+Error response from daemon: conflict: unable to delete 53d8f012a1a7 (cannot be forced) - image is being used by running container 75c0a0426360
+Error response from daemon: conflict: unable to delete 24ab38714e94 (must be forced) - image is referenced in multiple repositories
+Error response from daemon: conflict: unable to delete 24ab38714e94 (must be forced) - image is referenced in multiple repositories
+Error response from daemon: conflict: unable to delete e2ac70e7319a (must be forced) - image is being used by stopped container 3aff97197020
+[exit 1]
+
+$ docker image prune -a -f
+Deleted Images:
+untagged: alpine:3.22
+untagged: alpine@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
+untagged: myapp:dev
+deleted: sha256:24ab38714e948bd49d24d566e97c1c104b63f85c2e642685e72393b37cfb9862
+deleted: sha256:be64570a34e4c5e361d1f5d9cb42b851e7f9a33a61f91c335b287c1c7868f921
+
+Total reclaimed space: 8.297MB
+[exit 0]
+
+$ docker image ls
+REPOSITORY    TAG       IMAGE ID       CREATED        SIZE
+nginx         1.30      53d8f012a1a7   9 hours ago    163MB
+hello-world   latest    e2ac70e7319a   7 months ago   10.1kB
+[exit 0]
+
+$ docker ps -aq | xargs -r docker rm -f
+3aff97197020
+75c0a0426360
+[exit 0]
+
+$ docker image prune -a -f | tail -1
+Total reclaimed space: 162.6MB
+[exit 0]
+
+$ docker image ls
+REPOSITORY   TAG       IMAGE ID   CREATED   SIZE
+[exit 0]
+
+$ docker rmi $(docker images -q)
+docker: 'docker rmi' requires at least 1 argument
+
+Usage:  docker rmi [OPTIONS] IMAGE [IMAGE...]
+
+See 'docker rmi --help' for more information
+[exit 1]
+
+$ docker images -q | xargs -r docker rmi
+[exit 0]
+
+# 2. attach and detach
+
+# a. a container started with -it: Ctrl+P Ctrl+Q detaches
+
+$ (sleep 2; printf '\x10\x11'; sleep 3) | timeout 8 script -qec 'docker attach shell' /dev/null; echo "[attach exit $?]"; state shell
+Error response from daemon: No such container: shell
+docker-rerun.sh: line 9: printf: write error: Broken pipe
+[attach exit 1]
+
+Error: No such object: shell
+[exit 1]
+
+# b. typing exit in the attached shell ends the main process
+
+$ (sleep 2; printf 'exit\r'; sleep 3) | timeout 8 script -qec 'docker attach shell' /dev/null; echo "[attach exit $?]"; state shell
+Error response from daemon: No such container: shell
+docker-rerun.sh: line 9: printf: write error: Broken pipe
+[attach exit 1]
+
+Error: No such object: shell
+[exit 1]
+
+# c. custom detach keys
+
+$ (sleep 2; printf '\x18'; sleep 3) | timeout 8 script -qec 'docker attach --detach-keys=ctrl-x shell2' /dev/null; echo "[attach exit $?]"; state shell2
+Error response from daemon: No such container: shell2
+docker-rerun.sh: line 9: printf: write error: Broken pipe
+[attach exit 1]
+
+Error: No such object: shell2
+[exit 1]
+
+# d. no -it: Ctrl+P Ctrl+Q is not a detach sequence
+
+$ (sleep 2; printf '\x10\x11'; sleep 3) | timeout 6 script -qec 'docker attach --sig-proxy=false web' /dev/null; echo "[attach exit $?]"; state web
+Error response from daemon: No such container: web
+docker-rerun.sh: line 9: printf: write error: Broken pipe
+[attach exit 1]
+
+Error: No such object: web
+[exit 1]
+
+# e. no -it, --sig-proxy=false: Ctrl+C leaves the container running
+
+$ (sleep 2; printf '\x03'; sleep 3) | timeout 8 script -qec 'docker attach --sig-proxy=false web' /dev/null; echo "[attach exit $?]"; sleep 1; state web
+Error response from daemon: No such container: web
+docker-rerun.sh: line 9: printf: write error: Broken pipe
+[attach exit 1]
+
+Error: No such object: web
+[exit 1]
+
+# f. no -it, default --sig-proxy=true: Ctrl+C stops the container
+
+$ (sleep 2; printf '\x03'; sleep 3) | timeout 8 script -qec 'docker attach web' /dev/null; echo "[attach exit $?]"; sleep 2; state web
+Error response from daemon: No such container: web
+docker-rerun.sh: line 9: printf: write error: Broken pipe
+[attach exit 1]
+
+Error: No such object: web
+[exit 1]
+
+$ docker logs --tail 2 web
+Error response from daemon: No such container: web
+[exit 1]
+
+# g. killing the attach client (SIGTERM) with the default --sig-proxy=true
+
+$ timeout 4 docker attach web; echo "[attach exit $?]"; sleep 2; state web
+Error response from daemon: No such container: web
+[attach exit 1]
+
+Error: No such object: web
+[exit 1]
+
+$ timeout 4 docker attach --sig-proxy=false web; echo "[attach exit $?]"; sleep 2; state web
+Error response from daemon: No such container: web
+[attach exit 1]
+
+Error: No such object: web
+[exit 1]
+
+# h. exec does not touch the main process
+
+$ docker exec web sh -c 'exit 3'; echo "exec exit $?"; state web
+Error response from daemon: No such container: web
+exec exit 1
+
+Error: No such object: web
+[exit 1]
+
+$ docker top web -o pid,args
+Error response from daemon: No such container: web
+[exit 1]

@@ -1,0 +1,510 @@
+
+$ docker version --format 'client {{.Client.Version}}, engine {{.Server.Version}}'
+client 28.0.4, engine 28.0.4
+[exit 0]
+
+$ docker info --format '{{.Driver}} {{json .DriverStatus}}'
+overlay2 [["Backing Filesystem","extfs"],["Supports d_type","true"],["Using metacopy","false"],["Native Overlay Diff","false"],["userxattr","false"]]
+[exit 0]
+
+# 0. local IPv4 addresses with the Python standard library
+
+$ python3 --version
+Python 3.12.3
+[exit 0]
+
+$ python3 -c 'import socket; print(socket.gethostbyname(socket.gethostname()))'
+10.1.1.41
+[exit 0]
+
+$ grep -v '^#' /etc/hosts
+127.0.0.1 localhost
+
+::1     localhost ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+ff02::3 ip6-allhosts
+10.1.1.41 runnervm7aw5e runnervm7aw5e
+[exit 0]
+
+$ python3 ifaces.py
+lo: 127.0.0.1
+eth0: 10.1.1.41
+docker0: 172.17.0.1
+[exit 0]
+
+$ python3 route.py
+10.1.1.41
+[exit 0]
+
+$ ip -4 -br addr
+lo               UNKNOWN        127.0.0.1/8 
+eth0             UP             10.1.1.41/20 metric 100 
+docker0          DOWN           172.17.0.1/16 
+[exit 0]
+
+$ ip route get 192.0.2.1
+192.0.2.1 via 10.1.0.1 dev eth0 src 10.1.1.41 uid 1001 
+    cache 
+[exit 0]
+
+# 1. see what is inside an image
+
+$ docker pull -q nginx:1.30
+docker.io/library/nginx:1.30
+[exit 0]
+
+$ docker pull -q hello-world
+docker.io/library/hello-world:latest
+[exit 0]
+
+$ docker pull -q alpine:3.22
+docker.io/library/alpine:3.22
+[exit 0]
+
+$ docker image inspect -f 'Cmd={{json .Config.Cmd}} Entrypoint={{json .Config.Entrypoint}} WorkingDir={{.Config.WorkingDir}}' nginx:1.30
+Cmd=["nginx","-g","daemon off;"] Entrypoint=["/docker-entrypoint.sh"] WorkingDir=
+[exit 0]
+
+$ docker run --rm hello-world sh
+docker: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: "sh": executable file not found in $PATH
+
+Run 'docker run --help' for more information
+[exit 127]
+
+$ cid=$(docker create hello-world) && docker export $cid | tar -t; docker rm $cid
+.dockerenv
+dev/
+dev/console
+dev/pts/
+dev/shm/
+etc/
+etc/hostname
+etc/hosts
+etc/mtab
+etc/resolv.conf
+hello
+proc/
+sys/
+5bdf86f18c81dfc4ebfec7ed6c8e6f441d6b3ee12d351c0d4146d7c44270b72a
+[exit 0]
+
+$ cid=$(docker create nginx:1.30) && docker cp $cid:/etc/nginx/conf.d/default.conf . && head -4 default.conf; docker rm $cid
+server {
+    listen       80;
+    server_name  localhost;
+
+e79a60887702ef8f9419874e524b09ab4e9b86c73ccd35214431275399d15e50
+[exit 0]
+
+$ docker run --rm --entrypoint ls nginx:1.30 -la /etc/nginx
+total 36
+drwxr-xr-x 3 root root 4096 Nov  5 07:18 .
+drwxr-xr-x 1 root root 4096 Nov  5 16:37 ..
+drwxr-xr-x 2 root root 4096 Nov  5 07:18 conf.d
+-rw-r--r-- 1 root root 1007 Oct  2 14:33 fastcgi_params
+-rw-r--r-- 1 root root 5349 Oct  2 14:33 mime.types
+lrwxrwxrwx 1 root root   22 Oct  2 16:57 modules -> /usr/lib/nginx/modules
+-rw-r--r-- 1 root root  644 Oct  2 16:57 nginx.conf
+-rw-r--r-- 1 root root  636 Oct  2 14:33 scgi_params
+-rw-r--r-- 1 root root  664 Oct  2 14:33 uwsgi_params
+[exit 0]
+
+# 2. delete all local images
+
+$ docker tag alpine:3.22 myapp:dev
+[exit 0]
+
+$ docker run -d --name keep nginx:1.30
+72fad1c0986b83c4b37b0be319033f9a08af9221bb2a8ad6db68cd709744746e
+[exit 0]
+
+$ docker create --name stopped hello-world
+40cb452afd8716767607275efda1cf1a8f63c17efa51a808af4dba1c5efe3664
+[exit 0]
+
+$ docker image ls
+REPOSITORY                                   TAG       IMAGE ID       CREATED        SIZE
+nginx                                        1.30      53d8f012a1a7   9 hours ago    163MB
+ghcr.io/github/gh-aw-firewall/agent          latest    200c0f288918   4 days ago     1.01GB
+ghcr.io/github/gh-aw-firewall/api-proxy      latest    a98c768e5b76   4 days ago     374MB
+ghcr.io/github/gh-aw-mcpg                    latest    eacd6ee6b337   5 days ago     183MB
+ghcr.io/dependabot/dependabot-updater-core   latest    f4aec6b5f30a   6 days ago     829MB
+alpine                                       3.22      24ab38714e94   2 weeks ago    8.3MB
+myapp                                        dev       24ab38714e94   2 weeks ago    8.3MB
+ghcr.io/github/github-mcp-server             latest    4d955ee421ef   2 weeks ago    50.1MB
+ghcr.io/github/gh-aw-firewall/squid          latest    ceba3de0cc73   2 weeks ago    57.5MB
+hello-world                                  latest    e2ac70e7319a   7 months ago   10.1kB
+[exit 0]
+
+$ docker images -q
+53d8f012a1a7
+200c0f288918
+a98c768e5b76
+eacd6ee6b337
+f4aec6b5f30a
+24ab38714e94
+24ab38714e94
+4d955ee421ef
+ceba3de0cc73
+e2ac70e7319a
+[exit 0]
+
+$ docker rmi $(docker images -q)
+Untagged: ghcr.io/github/gh-aw-firewall/agent:latest
+Untagged: ghcr.io/github/gh-aw-firewall/agent@sha256:921e50aed7b2a67265f42ab03c7d54a32c641922cc64f0875a5ae2bcb8b37532
+Deleted: sha256:200c0f2889185e7a2d4b0960734b33c0c52e43069fb74241a52531d614216f3e
+Deleted: sha256:1b125d2125be6e6cfea131ab9145bb1512e7e97089171c3c6f28fc1ea5cf660e
+Deleted: sha256:20a3d2678c83a147d1ac519b991b59808369549c5177b5a1d87944e90f6cab66
+Deleted: sha256:7944b5986f23b186520b056b5cdc5aa4c2ea822e971000704931cf23f7540516
+Deleted: sha256:f7a6d4e1b76978d44e0e0ab921db8640c56101fb388a9e5a65fc8af93f944247
+Deleted: sha256:6f0aa48cf07f2c1f910e7f852bd912e5bad8a4434a72a2078603dcd9e13a0504
+Deleted: sha256:d20eab489c26ddd2149fb937ce0904f0e18578311fcabb5cb00a0a040e56ab00
+Deleted: sha256:4f4d0f16838cd281064848be7cf25c727dd24b7474a0c2848a3960370b3237ad
+Deleted: sha256:2ade3d2d2c87148bb542de11ed9c65b88bb64e3ae72308668b3dfba517c81425
+Deleted: sha256:eab216415be375a3f1ddde3d1dac447d848887d17718b23657e7f6bddd4259e5
+Deleted: sha256:3e9d2aedcbc7d4b4761125212e0c9b1446438acb7692418aeac4380ebcc2bb00
+Deleted: sha256:bfffcc9ff0e0260210135233aef491bee012a323750101f3b4a9f8deead9cdc0
+Deleted: sha256:23f073d3d17b6915b5301d5848ca9cf87ca53d8ca8dc259b7bc35da652bf4a52
+Deleted: sha256:886470a8ada2bcadfb428774037ef42b70d12b97ff992cbc81a6432253eadab1
+Deleted: sha256:759ca0da8575801b4b2b78018bef7ad8ce666c733a6b7df77f4bcca08de01c21
+Deleted: sha256:d2657c92ddec4255591ab2f5b9257d31bed8662f231939da1312074bc704e0ab
+Deleted: sha256:43f936c3045122b147ae16a04f7f78acd61cd80437e26de2ddc42fe07061d125
+Deleted: sha256:c6d1aa812940f029f129f7887e2ed0ea99dc8273566a42445c6589f7f0956bf5
+Deleted: sha256:a2d60a7128b59194213545778b989e507fcae1e4321c12111e8db7ac2d56666a
+Deleted: sha256:6865ad8f7a30a8966287e9d1793cadb32cf1be9d492f16d4ca99e01bea28b6d5
+Deleted: sha256:e1605e86b381b120e04a784c916c8694e3055e62af6d947a6f7f66520fbbbef4
+Deleted: sha256:f6e0e88dd8e11c81dba77d657b271e1ed7c33882e8f4dfaa7768cbaee94d94fc
+Untagged: ghcr.io/github/gh-aw-firewall/api-proxy:latest
+Untagged: ghcr.io/github/gh-aw-firewall/api-proxy@sha256:f36a9fc78aef0509ed5fa280819848cbdf099f60d7b338455ea54a5def18d6b1
+Deleted: sha256:a98c768e5b7637fd6304e52ead38cbb5bcc19991d338a4d22d2b1b1ce9aa2fd5
+Deleted: sha256:05e467c374f6726bd8f2fe681c7a4767fc2eb0809947c77843d494b61b5f1843
+Deleted: sha256:aa38195a74aea620046b40847ef8a8a8853d98845c7a63cff338f0284c6bf301
+Deleted: sha256:59d25fec560c38533c878d1a3065ef30648dbf6fd228a1141a34841222c06792
+Deleted: sha256:1c2af7dc573ae284a75a48b580396a264dbc0d0e088960bfe3c8bc9d43e6dce3
+Deleted: sha256:c521dfd291301c3c925083b0b0c831a9db036685f0bcb43e5125e3b32434b29b
+Deleted: sha256:d4ef6f4be478015eae4ee2a35c7d684a239d877bddf69ad7acb4402573ecc0a8
+Deleted: sha256:1403a4f40d7afb12e964718e02eafff685d21717ec39f42dffc591905fc304cc
+Deleted: sha256:930366789cb044393065f3ec3b553c313f01f946b4af55247923bce3b3f567e0
+Deleted: sha256:2c1eef2f1f5bfb979da046156c9b8d0f9032ead80dc7f0d0fa9808f276b106d7
+Deleted: sha256:fe6fff3c2bb2a85955504fd1f79350460cee2ac988201815065909e54220a4ac
+Deleted: sha256:060f91b0872de59eb67f7d745908a0c0caa9309f3094c9c91bf9f484a42955ca
+Deleted: sha256:f80bf75f16280363a2e032582f2fc16d27432c5f8b723df782b6bcbfb7e27924
+Deleted: sha256:9ac373ada57ffc27dcc3394207b9ad1d5c5f01c043a8a5402696532556e352da
+Deleted: sha256:2f861ab5a2cf99d08875a9f545a2471c19e91c93769c3a3cc7175c530a3970ec
+Deleted: sha256:352b00e6763d6ebaab8cb99a3bac61fc65a5a1ff5cb48d539a0c353574d7f03a
+Untagged: ghcr.io/github/gh-aw-mcpg:latest
+Untagged: ghcr.io/github/gh-aw-mcpg@sha256:3719f62df6229fc6670098c3df6d7ff792a7a67ddf9c7e016a5653f39b72e1a4
+Deleted: sha256:eacd6ee6b337225d9d0d18d31787590fff169fc27d0021e3021049520c319453
+Deleted: sha256:46a214cc8f95204d4ef2e08e4b7b966b99dfc4288b8a5cd17298b5872bb94e6c
+Deleted: sha256:8e33c09bc9b2ca2c5aa794116b7a793c361476771ff50fa8a2ec56de079b0269
+Deleted: sha256:43967d788b7ef05eacbb1b00885604200cf836bad3fb412ddd988671242675a6
+Deleted: sha256:419e430001716b929fb81ca7f2f6c33ac52f3c77d225d960c8ffac07d7e2e01f
+Deleted: sha256:e4707ec8f688c6776667fe39a22e750ef0cb608530bcf9e4b99170086cf03e03
+Deleted: sha256:076fa2779acee36fe423d7a96b35f9ee3669e369097ee039acf59e96197fcb84
+Deleted: sha256:f4be26f88c84ae4994b8f72039b3a31e4177c1676751f4e51521cb99f00ba7ee
+Deleted: sha256:3b0abdfd3c94e7bc73093f7488b4d6e7b164dfdf43193edaa6ba8df32def333a
+Deleted: sha256:afa44dee9a0a5460f9bb4c303a6a93d323ad0d0decbf8f3dddea61b2ea31a06c
+Deleted: sha256:b120877a8c6acddb44283da821e1eb98ad3ba9dba9954b6a89510661576ec1db
+Deleted: sha256:a1ab8e74cca4db0e2c77a634e30586adfd4cf1e081268545aa8b185df216d11c
+Untagged: ghcr.io/dependabot/dependabot-updater-core:latest
+Untagged: ghcr.io/dependabot/dependabot-updater-core@sha256:57ad85c77c5f48eeb75f4e75497bb59ea3952f16107aec618947f0bf3cae584d
+Deleted: sha256:f4aec6b5f30a94c5579d63adab17d66683d3118cbc3ac3c7aff9a5c06c6060b3
+Deleted: sha256:9ef73ae26794fd0686554aa4399fe07748768d350d58f44cc704dec38de1e8db
+Deleted: sha256:b934334e7dbd20f6fc725b8a8cb3ec44b959a74a816b611197434ccd51a52d63
+Deleted: sha256:95480d49da3f4d74cd595dc74da9f4bb021f8b7be717a8a033f40288373b0c7a
+Deleted: sha256:3087339e688b4bf6db9cf7a600d7b29d940438abf05f1461d0f50db4a12ca02d
+Deleted: sha256:07ee710eb8e2562dd77b550027f87ba78ff4deb887a5f4ebec9be858645d7f80
+Deleted: sha256:77eebd254f1d23d64a395d7165836d038052e21403c92df5a4fb3025e9da42f0
+Deleted: sha256:0bd3f2c9cc2763d5a4076579d40d672a8fcf39fa425afbd6a8ec087eb6ed9edc
+Deleted: sha256:59ba1a8423bcb2bd26c9dc08d5be3013be5c25b239f9f4a1c75923c29930452e
+Deleted: sha256:21a6aa6d5b48a68c8375aeb8ddf6b804b99560e29fd9f5432db04e7c709e1cb0
+Deleted: sha256:361c7ab37f39f15d5590d568f971c22baa55668dfd76e9fe60c7b216dd6e162b
+Deleted: sha256:7a978acce86a5832ce021c8269fd903fd8d15adc0d8009e7df52766e1fdced64
+Deleted: sha256:bec87777bc2fb2edcdf9af11df1531469e7df911309c1413082b18fcb8610278
+Untagged: ghcr.io/github/github-mcp-server:latest
+Untagged: ghcr.io/github/github-mcp-server@sha256:250bc6ce70788207608ef74cef4397230ff2e8481218da74d6093e4bd9101132
+Deleted: sha256:4d955ee421ef7194cbef8a50bfe034a27d1e682875a6e8049023ab55bf80a8ec
+Deleted: sha256:7beebe31d1d8200dde3d1d5025547bd66be6a16fb1ec36d4d6612d3c10bbe031
+Deleted: sha256:1e1cabb4a65e50fb84bc4612619b0025e4a1d06d5e38699d1e67e5a8e4f333db
+Deleted: sha256:86766d6a6e947f4a599c6e23307470f8f75732fc3d143ec1f3260e4406202bee
+Deleted: sha256:2944471a0bbdfb4985f84f8d287edb5cd982d1060589e707a6cb0cbe82cdfe89
+Deleted: sha256:5e555e7975e2202f21fb93d460d701a340ade876f3afccb70d702f1dc5ab80db
+Deleted: sha256:2a080d78a1c5e3615170178f1c6f4c726340da9d5ff2926cb66e2fd97851da9d
+Deleted: sha256:af4a114029fbf94a3cf75c5cfaa5e947019cd6faae4b800c9306ac9079363def
+Deleted: sha256:c7b875d3de914680ec64ba55be5865955ec595e7370812894ee68a502e2e8391
+Deleted: sha256:85d9b4c1ef131ee259952a35027e942f79626303ab143eff7ef00d55201bd06f
+Deleted: sha256:492c6420fd79f4cd4e761bec1e74db6044d45adb5b073a82289af68aa3162e3f
+Deleted: sha256:14b282df61c0316a80216cec27e753777da93de1d7e062072ef3b517f984fcf1
+Deleted: sha256:fdaace00fc3f072b9060f703047b30a2c14d8bde7dbbf31a396802c032923732
+Deleted: sha256:7f73eafc455b691b504d4d3c3f3c7be90e135c1d0ba4988b2cac29579cd6b567
+Deleted: sha256:32a12b65383df6b6553c8d59f691675ca1980f8cec9c51cce163c3c8f7665a41
+Deleted: sha256:5217b01660b515ac25ea055a8bd04a20790c7d6bd6085374b59b9081283911af
+Deleted: sha256:7223ea1323e8c1159ec17f07d35acc27bdd1cc2bc3ed425b44ef21dac9915db0
+Untagged: ghcr.io/github/gh-aw-firewall/squid:latest
+Untagged: ghcr.io/github/gh-aw-firewall/squid@sha256:34260cb89ea5d6d55b93ce13a5fe1772dbe8e1592e1200370160b7f5a0bd2ecd
+Deleted: sha256:ceba3de0cc73ccb8d76055b6f4ff404a1f556c398b0c85038c5016f005d11bcb
+Deleted: sha256:37cb58e0bfb4c148b36bdd6a1e540b0b8c2f28a8f9d281f7d2e3728c86c58d61
+Deleted: sha256:f855a6188d1921e2c40b83e4db179844783988895a195abef6cf98bd73bf15b9
+Deleted: sha256:72e88ce23c556a10fc021d13dc79028d769008e14542e1639438c3788cfb736d
+Deleted: sha256:4f0183f634b4b9589f0d4ebbaa3c4fea25289e3888913b3404267afccb81751b
+Deleted: sha256:2cf336166cfb412c1393d59cec3dc02407b9a0e7c1b0e6a5dfef1b03473270a0
+Deleted: sha256:17b0094a813d97c34ca729739326189c9afdd4610bc44d121b69608ca549051f
+Deleted: sha256:8ccd9236e1fc745540569864e5e03aa2976fda968ebc44d2bfbe7a2a2cc3824c
+Deleted: sha256:74d97c428c51a828f9051a7a40a53ff1fc99e54fc30323ce36760701b0b7f711
+Error response from daemon: conflict: unable to delete 53d8f012a1a7 (cannot be forced) - image is being used by running container 72fad1c0986b
+Error response from daemon: conflict: unable to delete 24ab38714e94 (must be forced) - image is referenced in multiple repositories
+Error response from daemon: conflict: unable to delete 24ab38714e94 (must be forced) - image is referenced in multiple repositories
+Error response from daemon: conflict: unable to delete e2ac70e7319a (must be forced) - image is being used by stopped container 40cb452afd87
+[exit 1]
+
+$ docker image ls
+REPOSITORY    TAG       IMAGE ID       CREATED        SIZE
+nginx         1.30      53d8f012a1a7   9 hours ago    163MB
+alpine        3.22      24ab38714e94   2 weeks ago    8.3MB
+myapp         dev       24ab38714e94   2 weeks ago    8.3MB
+hello-world   latest    e2ac70e7319a   7 months ago   10.1kB
+[exit 0]
+
+$ docker pull -q alpine:3.22
+docker.io/library/alpine:3.22
+[exit 0]
+
+$ docker tag alpine:3.22 myapp:dev
+[exit 0]
+
+$ docker image prune -a -f
+Deleted Images:
+untagged: alpine:3.22
+untagged: alpine@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
+untagged: myapp:dev
+deleted: sha256:24ab38714e948bd49d24d566e97c1c104b63f85c2e642685e72393b37cfb9862
+deleted: sha256:be64570a34e4c5e361d1f5d9cb42b851e7f9a33a61f91c335b287c1c7868f921
+
+Total reclaimed space: 8.297MB
+[exit 0]
+
+$ docker image ls
+REPOSITORY    TAG       IMAGE ID       CREATED        SIZE
+nginx         1.30      53d8f012a1a7   9 hours ago    163MB
+hello-world   latest    e2ac70e7319a   7 months ago   10.1kB
+[exit 0]
+
+$ docker ps -aq | xargs -r docker rm -f
+40cb452afd87
+72fad1c0986b
+[exit 0]
+
+$ docker image prune -a -f
+Deleted Images:
+untagged: nginx:1.30
+untagged: nginx@sha256:f12e4e280502f79dae4488c9f677ab3ebe8a7079818bbfbf3242f236bac64d34
+deleted: sha256:53d8f012a1a7659f355c0930b4c8c8768a17a9f44a1d38d4fd7276a5096fcccd
+deleted: sha256:2660c03af31f656c4770aeb70317233a9344a332772b25c52c9e086eaa7b2408
+deleted: sha256:dad6df25b7545ca55499ece0c11c2811aecc4e30e3ae809d077974afa7ae90c3
+deleted: sha256:8f7826d4d9657d848ff6f34fe625bc26babaf0af6fc9078c61a6cdf07c7bbfa1
+deleted: sha256:070e00eb346a5391b3411de23c08a17def09c014e66b8c3a9b94b823ba37349d
+deleted: sha256:041d0777c932f3a9d5187e8daf1a2c53681025afd40c73d89b2a56ad58978935
+deleted: sha256:12dfa608430b4d24faac942a303cf179165e7b60585290964c9486b78a2349e6
+deleted: sha256:dd57f90311a2567b55ff22eeacff1602fd04ad7566e315957731359eab173b90
+untagged: hello-world:latest
+untagged: hello-world@sha256:c567b231f65614688711a75f31518a064258a51d442117a3e771a3a8fdba78ef
+deleted: sha256:e2ac70e7319a02c5a477f5825259bd118b94e8b02c279c67afa63adab6d8685b
+deleted: sha256:897b3f2a7c1bc2f3d02432f7892fe31c6272c521ad4d70257df624504a3238b4
+
+Total reclaimed space: 162.6MB
+[exit 0]
+
+$ docker image ls
+REPOSITORY   TAG       IMAGE ID   CREATED   SIZE
+[exit 0]
+
+$ docker rmi $(docker images -q)
+docker: 'docker rmi' requires at least 1 argument
+
+Usage:  docker rmi [OPTIONS] IMAGE [IMAGE...]
+
+See 'docker rmi --help' for more information
+[exit 1]
+
+$ docker images -q | xargs -r docker rmi
+[exit 0]
+
+# 3. exec vs attach, detach keys, Ctrl+C
+
+$ docker pull -q alpine:3.22
+docker.io/library/alpine:3.22
+[exit 0]
+
+$ docker pull -q nginx:1.30
+docker.io/library/nginx:1.30
+[exit 0]
+
+$ docker run -dit --name shell alpine:3.22 sh
+0b204499206cdf33f7da0e6abbd374640a695ab578c73842ac7c48ff8cb75e5c
+[exit 0]
+
+$ docker exec shell sh -c 'exit 3'; echo "exec exit $?"; docker inspect -f '{{.State.Status}}' shell
+exec exit 3
+running
+[exit 0]
+
+$ (sleep 2; printf '\x10\x11'; sleep 4) | timeout 10 script -qec 'docker attach shell' /dev/null; echo "[attach exit $?]"; docker inspect -f '{{.State.Status}}' shell
+/ # [Jread escape sequence
+[attach exit 1]
+running
+[exit 0]
+
+$ (sleep 2; printf 'exit\r'; sleep 4) | timeout 10 script -qec 'docker attach shell' /dev/null; echo "[attach exit $?]"; docker inspect -f '{{.State.Status}} exit={{.State.ExitCode}}' shell
+exit
+[attach exit 0]
+exited exit=0
+[exit 0]
+
+$ docker run -d --name web nginx:1.30
+9595a48d5cccf9f58a8ee677f4a62c6ef9d81da0992c4840a86aede7ac52f788
+[exit 0]
+
+$ (sleep 2; printf '\x10\x11'; sleep 4) | timeout 10 script -qec 'docker attach web' /dev/null; echo "[attach exit $?]"; docker inspect -f '{{.State.Status}}' web
+^P
+Session terminated, killing shell... ...killed.
+[attach exit 124]
+exited
+[exit 0]
+
+$ (sleep 2; printf '\x03'; sleep 4) | timeout 10 script -qec 'docker attach --sig-proxy=false web' /dev/null; echo "[attach exit $?]"; docker inspect -f '{{.State.Status}}' web
+You cannot attach to a stopped container, start it first
+docker.sh: line 8: printf: write error: Broken pipe
+[attach exit 1]
+exited
+[exit 0]
+
+$ (sleep 2; printf '\x03'; sleep 4) | timeout 10 script -qec 'docker attach web' /dev/null; echo "[attach exit $?]"; sleep 2; docker inspect -f '{{.State.Status}} exit={{.State.ExitCode}}' web
+You cannot attach to a stopped container, start it first
+docker.sh: line 8: printf: write error: Broken pipe
+[attach exit 1]
+exited exit=0
+[exit 0]
+
+$ docker logs --tail 4 web
+2026/11/05 16:37:57 [notice] 1#1: signal 29 (SIGIO) received
+2026/11/05 16:37:57 [notice] 1#1: signal 17 (SIGCHLD) received from 29
+2026/11/05 16:37:57 [notice] 1#1: worker process 29 exited with code 0
+2026/11/05 16:37:57 [notice] 1#1: exit
+[exit 0]
+
+$ docker rm -f shell web
+shell
+web
+[exit 0]
+
+# 4. save and load, export and import
+
+$ docker image inspect -f '{{.Id}} {{json .RepoDigests}}' nginx:1.30
+sha256:53d8f012a1a7659f355c0930b4c8c8768a17a9f44a1d38d4fd7276a5096fcccd ["nginx@sha256:f12e4e280502f79dae4488c9f677ab3ebe8a7079818bbfbf3242f236bac64d34"]
+[exit 0]
+
+$ docker save nginx:1.30 | wc -c
+166211584
+[exit 0]
+
+$ docker save nginx:1.30 | gzip > nginx.tar.gz && ls -l nginx.tar.gz
+-rw-r--r-- 1 runner runner 62939825 Nov  5 16:38 nginx.tar.gz
+[exit 0]
+
+$ docker rmi nginx:1.30
+Untagged: nginx:1.30
+Untagged: nginx@sha256:f12e4e280502f79dae4488c9f677ab3ebe8a7079818bbfbf3242f236bac64d34
+Deleted: sha256:53d8f012a1a7659f355c0930b4c8c8768a17a9f44a1d38d4fd7276a5096fcccd
+Deleted: sha256:2660c03af31f656c4770aeb70317233a9344a332772b25c52c9e086eaa7b2408
+Deleted: sha256:dad6df25b7545ca55499ece0c11c2811aecc4e30e3ae809d077974afa7ae90c3
+Deleted: sha256:8f7826d4d9657d848ff6f34fe625bc26babaf0af6fc9078c61a6cdf07c7bbfa1
+Deleted: sha256:070e00eb346a5391b3411de23c08a17def09c014e66b8c3a9b94b823ba37349d
+Deleted: sha256:041d0777c932f3a9d5187e8daf1a2c53681025afd40c73d89b2a56ad58978935
+Deleted: sha256:12dfa608430b4d24faac942a303cf179165e7b60585290964c9486b78a2349e6
+Deleted: sha256:dd57f90311a2567b55ff22eeacff1602fd04ad7566e315957731359eab173b90
+[exit 0]
+
+$ docker load -i nginx.tar.gz
+Loaded image: nginx:1.30
+[exit 0]
+
+$ docker image inspect -f '{{.Id}} {{json .RepoDigests}}' nginx:1.30
+sha256:53d8f012a1a7659f355c0930b4c8c8768a17a9f44a1d38d4fd7276a5096fcccd []
+[exit 0]
+
+$ docker create --name exp nginx:1.30 && docker export exp | docker import - nginx-flat:1.30; docker rm exp
+ab1c7a8597f18328b63d5347cb85e62ef17e76a9ba017e545feab5e75abb8164
+sha256:2f237a0fbaadcbb93376d8c805c48fe4c974dfffd4d7e3535c8aa7f39e6163c0
+exp
+[exit 0]
+
+$ docker image inspect -f 'Cmd={{json .Config.Cmd}} Entrypoint={{json .Config.Entrypoint}} ExposedPorts={{json .Config.ExposedPorts}}' nginx-flat:1.30
+Cmd=null Entrypoint=null ExposedPorts=null
+[exit 0]
+
+$ docker run --rm nginx-flat:1.30
+docker: Error response from daemon: no command specified
+
+Run 'docker run --help' for more information
+[exit 125]
+
+$ docker history --format '{{.CreatedBy}}' nginx-flat:1.30
+
+[exit 0]
+
+# 5. publish many ports
+
+$ docker run -d --name multi -p 8080-8082:80-82 nginx:1.30 && docker port multi
+fe1cd3a23ddf497824ed6979a532356c103d9c3b194630502a5f408eb6fdecfb
+80/tcp -> 0.0.0.0:8080
+80/tcp -> [::]:8080
+81/tcp -> 0.0.0.0:8081
+81/tcp -> [::]:8081
+82/tcp -> 0.0.0.0:8082
+82/tcp -> [::]:8082
+[exit 0]
+
+$ docker run -d --name bad -p 8090-8092:80-81 nginx:1.30
+docker: invalid ranges specified for container and host Ports: 80-81 and 8090-8092
+
+Run 'docker run --help' for more information
+[exit 125]
+
+$ docker run -d --name pick1 -p 9000-9005:80 nginx:1.30 && docker run -d --name pick2 -p 9000-9005:80 nginx:1.30 && docker port pick1 && docker port pick2
+b613895d866b821066f6b10e5e18d6b36c94cffc15ed91d9521eadd9dd83839d
+0d95da3d09065b1a66bc2df8f436582755431d92cfdfbc9a80a012a2994acb83
+80/tcp -> 0.0.0.0:9000
+80/tcp -> [::]:9000
+80/tcp -> 0.0.0.0:9001
+80/tcp -> [::]:9001
+[exit 0]
+
+$ docker run -d --name same -p 8080:80 nginx:1.30
+3b128230f7ecf06c84fbab1c35a295eeb1554e06eaead755daf6dc7754ee60ce
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint same (bd922ad55b18428d862300f3f651d706803d6fc2bfbc1f9095d9687c204edf79): Bind for 0.0.0.0:8080 failed: port is already allocated
+
+Run 'docker run --help' for more information
+[exit 125]
+
+$ docker build -q -t multi-expose .
+sha256:a5311be4152a33d8511dd673d1f0c683434e245c909d5c2e24310a5d2b855edb
+[exit 0]
+
+$ docker image inspect -f '{{json .Config.ExposedPorts}}' multi-expose
+{"5353/udp":{},"80/tcp":{},"8443/tcp":{},"9229/tcp":{}}
+[exit 0]
+
+$ docker run -d --name allports -P multi-expose && docker port allports
+23a76b5c5fa729b9816344e5c73fb73911c9dbc6e3e7c0af48bb520882bbc322
+80/tcp -> 0.0.0.0:32768
+80/tcp -> [::]:32768
+5353/udp -> 0.0.0.0:32768
+5353/udp -> [::]:32768
+8443/tcp -> 0.0.0.0:32769
+8443/tcp -> [::]:32769
+9229/tcp -> 0.0.0.0:32770
+9229/tcp -> [::]:32770
+[exit 0]

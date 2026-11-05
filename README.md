@@ -7,8 +7,11 @@ Each folder has a `run.sh`. The `run` workflow (manual trigger) runs one folder 
 | Folder | Post |
 |---|---|
 | [docker-compose-lifecycle](docker-compose-lifecycle) | [How to rebuild, restart and upgrade a Docker Compose container](https://devops-daily.com/posts/rebuild-docker-container-compose) |
+| [consolidation-batch-1](consolidation-batch-1) | Sections added when 25 short posts were merged into existing pages (Docker posts, Docker guide parts 3 and 6, Kubernetes guide parts 5 and 9, the stuck-pods post) |
 
 `docker-compose-lifecycle/run.sh` produced the post's terminal blocks ([log](docker-compose-lifecycle/logs/run-2026-10-12.log)). `build-recreate-check.sh` compares when `up -d --build` recreates the container on Compose 2.38.2 (bake and classic builder) and 5.6.0 ([log](docker-compose-lifecycle/logs/build-recreate-check-2026-10-12.log)).
+
+`consolidation-batch-1` has four scripts: `docker.sh` (EXPOSE and -P, single-file mounts, exec in CMD, Compose, logs, prune, registries), `logs.sh` (docker logs after a truncated json-file log), `registry.sh` (push to a registry with a password) and `kind.sh` (a namespace stuck in Terminating, Service ports, a failing init container). Logs are in [consolidation-batch-1/logs](consolidation-batch-1/logs). The first `kind.sh` run hung on `kubectl delete namespace --force` until the job timed out; that log is kept too.
 
 ## Run one yourself
 

@@ -1,0 +1,71 @@
+Unable to find image 'registry:3' locally
+3: Pulling from library/registry
+7b229517ed22: Pulling fs layer
+9cf9c5d068e4: Pulling fs layer
+30513d5b3b2d: Pulling fs layer
+7a0bafd2eac6: Pulling fs layer
+b6d795448ea0: Pulling fs layer
+7a0bafd2eac6: Waiting
+b6d795448ea0: Waiting
+9cf9c5d068e4: Download complete
+7b229517ed22: Verifying Checksum
+7b229517ed22: Download complete
+30513d5b3b2d: Verifying Checksum
+30513d5b3b2d: Download complete
+7a0bafd2eac6: Verifying Checksum
+7a0bafd2eac6: Download complete
+b6d795448ea0: Verifying Checksum
+b6d795448ea0: Download complete
+7b229517ed22: Pull complete
+9cf9c5d068e4: Pull complete
+30513d5b3b2d: Pull complete
+7a0bafd2eac6: Pull complete
+b6d795448ea0: Pull complete
+Digest: sha256:d4032d4cc323c1731c707931ecada07a53076eac38e3b61ae57533f170f2c6c3
+Status: Downloaded newer image for registry:3
+
+$ docker version --format 'engine {{.Server.Version}}'
+engine 28.0.4
+[exit 0]
+
+$ docker tag my-nginx:1.0 localhost:5001/team/my-nginx:1.0
+[exit 0]
+
+$ docker push localhost:5001/team/my-nginx:1.0
+The push refers to repository [localhost:5001/team/my-nginx]
+cfc4e899f35d: Preparing
+88a1caf4fec3: Preparing
+4b0179f57b8f: Preparing
+e32f66f528dd: Preparing
+0d48a24a4af5: Preparing
+0d242dcb84f3: Preparing
+dd57f90311a2: Preparing
+0d242dcb84f3: Waiting
+dd57f90311a2: Waiting
+no basic auth credentials
+[exit 1]
+
+$ echo "$REGISTRY_PASSWORD" | docker login localhost:5001 -u ci-bot --password-stdin
+
+WARNING! Your credentials are stored unencrypted in '/home/runner/.docker/config.json'.
+Configure a credential helper to remove this warning. See
+https://docs.docker.com/go/credential-store/
+
+Login Succeeded
+[exit 0]
+
+$ docker push -q localhost:5001/team/my-nginx:1.0
+localhost:5001/team/my-nginx:1.0
+[exit 0]
+
+$ curl -s -u ci-bot:"$REGISTRY_PASSWORD" http://localhost:5001/v2/team/my-nginx/tags/list
+{"name":"team/my-nginx","tags":["1.0"]}
+[exit 0]
+
+$ curl -s http://localhost:5001/v2/team/my-nginx/tags/list
+{"errors":[{"code":"UNAUTHORIZED","message":"authentication required","detail":[{"Type":"repository","Class":"","Name":"team/my-nginx","Action":"pull"}]}]}
+[exit 0]
+
+$ docker logout localhost:5001
+Removing login credentials for localhost:5001
+[exit 0]

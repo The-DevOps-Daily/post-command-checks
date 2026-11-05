@@ -1,0 +1,490 @@
+
+$ docker version --format 'client {{.Client.Version}}, engine {{.Server.Version}}'
+client 28.0.4, engine 28.0.4
+[exit 0]
+
+$ docker compose version
+Docker Compose version v2.38.2
+[exit 0]
+
+# 1. EXPOSE, -p and -P
+
+$ docker pull -q nginx:1.30
+docker.io/library/nginx:1.30
+[exit 0]
+
+$ docker image inspect -f '{{json .Config.ExposedPorts}}' nginx:1.30
+{"80/tcp":{}}
+[exit 0]
+
+$ docker run -d --name web -P nginx:1.30
+2c8353cf76fed2dbbf4aedec77bbec2de2476c3d3b187c08ffc0c462816bb93b
+[exit 0]
+
+$ docker port web
+80/tcp -> 0.0.0.0:32768
+80/tcp -> [::]:32768
+[exit 0]
+
+$ docker rm -f web
+web
+[exit 0]
+
+# a port that no image EXPOSEs is still reachable on a shared network
+
+$ docker network create batch1-net
+28702db821dff9205e4596fd8599bc5aff61e59610341ea71c5026587d4e5df7
+[exit 0]
+
+$ docker run -d --name api --network batch1-net python:3.13-alpine python -m http.server 9000
+Unable to find image 'python:3.13-alpine' locally
+3.13-alpine: Pulling from library/python
+7b229517ed22: Pulling fs layer
+09a0787ca8c6: Pulling fs layer
+932709760b04: Pulling fs layer
+53a2a9572bd3: Pulling fs layer
+53a2a9572bd3: Waiting
+09a0787ca8c6: Verifying Checksum
+09a0787ca8c6: Download complete
+7b229517ed22: Verifying Checksum
+7b229517ed22: Download complete
+932709760b04: Verifying Checksum
+932709760b04: Download complete
+53a2a9572bd3: Verifying Checksum
+53a2a9572bd3: Download complete
+7b229517ed22: Pull complete
+09a0787ca8c6: Pull complete
+932709760b04: Pull complete
+53a2a9572bd3: Pull complete
+Digest: sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8
+Status: Downloaded newer image for python:3.13-alpine
+7b0036e2cb3205162c4fbecd40358ac1ab43c037e3e25c9a210056b7c72fe895
+[exit 0]
+
+$ docker image inspect -f '{{json .Config.ExposedPorts}}' python:3.13-alpine
+null
+[exit 0]
+
+$ docker run --rm --network batch1-net curlimages/curl:8.23.0 -s -o /dev/null -w '%{http_code}\n' http://api:9000/
+Unable to find image 'curlimages/curl:8.23.0' locally
+8.23.0: Pulling from curlimages/curl
+76790e7f0590: Pulling fs layer
+76790e7f0590: Verifying Checksum
+76790e7f0590: Download complete
+76790e7f0590: Pull complete
+Digest: sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
+Status: Downloaded newer image for curlimages/curl:8.23.0
+200
+[exit 0]
+
+$ docker rm -f api
+api
+[exit 0]
+
+# 2. a single-file bind mount
+
+$ docker run -d --name cfg -v "/tmp/tmp.7TZ517LgXT/app.conf":/etc/app.conf:ro alpine:3.22 sleep 300
+Unable to find image 'alpine:3.22' locally
+3.22: Pulling from library/alpine
+63e7e49699e8: Pulling fs layer
+63e7e49699e8: Verifying Checksum
+63e7e49699e8: Download complete
+63e7e49699e8: Pull complete
+Digest: sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
+Status: Downloaded newer image for alpine:3.22
+d05f3c2f87b2797a565159b25bcd50d982f61450f9a1af3af72db3741c802133
+[exit 0]
+
+$ docker exec cfg cat /etc/app.conf
+mode=v1
+[exit 0]
+
+$ ls -i app.conf
+9184505 app.conf
+[exit 0]
+
+$ echo 'debug=false' >> app.conf
+[exit 0]
+
+$ docker exec cfg cat /etc/app.conf
+mode=v1
+debug=false
+[exit 0]
+
+$ sed -i 's/v1/v2/' app.conf
+[exit 0]
+
+$ ls -i app.conf
+9185704 app.conf
+[exit 0]
+
+$ cat app.conf
+mode=v2
+debug=false
+[exit 0]
+
+$ docker exec cfg cat /etc/app.conf
+mode=v1
+debug=false
+[exit 0]
+
+$ docker restart cfg
+cfg
+[exit 0]
+
+$ docker exec cfg cat /etc/app.conf
+mode=v2
+debug=false
+[exit 0]
+
+$ docker rm -f cfg
+cfg
+[exit 0]
+
+# a missing source file
+
+$ docker run --rm -v "/tmp/tmp.7TZ517LgXT/missing.conf":/etc/missing.conf alpine:3.22 ls -ld /etc/missing.conf
+drwxr-xr-x    2 root     root          4096 Nov  5 13:06 /etc/missing.conf
+[exit 0]
+
+$ ls -ld missing.conf
+drwxr-xr-x 2 root root 4096 Nov  5 13:06 missing.conf
+[exit 0]
+
+$ docker run --rm --mount type=bind,src=/tmp/tmp.7TZ517LgXT/typo.conf,dst=/etc/typo.conf alpine:3.22 true
+docker: Error response from daemon: invalid mount config for type "bind": bind source path does not exist: /tmp/tmp.7TZ517LgXT/typo.conf
+
+Run 'docker run --help' for more information
+[exit 125]
+
+# 3. more than one command at start, with and without exec
+
+$ docker build -q -t sh-plain plain
+sha256:69b9f636abe593547be4b7a0904b3c44d38a6f5e0dea1b6365fd383328f0aae2
+[exit 0]
+
+$ docker build -q -t sh-exec exec
+sha256:f6646fa22f1b06bb49d5d759249b2c1adcceff436f9e114d6e38b4221229b9de
+[exit 0]
+
+$ docker run -d --name sh-plain sh-plain
+f244b546e3d1986265393e1414b8c9622293a86d6528fc8ad80f498640b4df4f
+[exit 0]
+
+$ docker run -d --name sh-exec sh-exec
+92f403357da66bf017b733fb0a0522b562d9cc80b85e4bed9e4ffb50d6594875
+[exit 0]
+
+$ docker exec sh-plain cat /proc/1/cmdline | tr '\0' ' '; echo
+sh -c echo setup done && nginx -g 'daemon off;' 
+[exit 0]
+
+$ docker exec sh-exec cat /proc/1/cmdline | tr '\0' ' '; echo
+nginx: master process nginx -g daemon off; 
+[exit 0]
+
+$ s=$(date +%s); docker stop sh-plain >/dev/null; echo "sh-plain stopped in $(( $(date +%s) - s ))s, exit code $(docker inspect -f '{{.State.ExitCode}}' sh-plain)"
+sh-plain stopped in 10s, exit code 137
+[exit 0]
+
+$ s=$(date +%s); docker stop sh-exec >/dev/null; echo "sh-exec stopped in $(( $(date +%s) - s ))s, exit code $(docker inspect -f '{{.State.ExitCode}}' sh-exec)"
+sh-exec stopped in 0s, exit code 0
+[exit 0]
+
+$ docker rm -f sh-plain sh-exec
+sh-plain
+sh-exec
+[exit 0]
+
+# 4. Compose: build from a Dockerfile, a one-off migrate service, a command override
+
+$ docker compose -p batch1 build
+#1 [internal] load local bake definitions
+#1 reading from stdin 343B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 118B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.13-alpine
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/2] FROM docker.io/library/python:3.13-alpine
+#5 DONE 0.0s
+
+#6 [2/2] WORKDIR /app
+#6 DONE 0.0s
+
+#7 exporting to image
+#7 exporting layers
+#7 exporting layers 1.0s done
+#7 writing image sha256:a049c2f5fcefcc9764dba38bb5e9077a1a768e5c8ba9f56b0d8ada0f32966d5b done
+#7 naming to docker.io/library/batch1-app:1.0 done
+#7 DONE 1.0s
+
+#8 resolving provenance for metadata file
+#8 DONE 0.0s
+ app  Built
+[exit 0]
+
+$ docker compose -p batch1 up -d
+ Network batch1_default  Creating
+ Network batch1_default  Created
+ Container batch1-migrate-1  Creating
+ Container batch1-migrate-1  Created
+ Container batch1-app-1  Creating
+ Container batch1-app-1  Created
+ Container batch1-migrate-1  Starting
+ Container batch1-migrate-1  Started
+ Container batch1-migrate-1  Waiting
+ Container batch1-migrate-1  Exited
+ Container batch1-app-1  Starting
+ Container batch1-app-1  Started
+[exit 0]
+
+$ docker compose -p batch1 ps -a --format 'table {{.Service}}\t{{.Status}}'
+SERVICE   STATUS
+app       Up Less than a second
+migrate   Exited (0) Less than a second ago
+[exit 0]
+
+$ docker compose -p batch1 logs --no-color migrate app
+migrate-1  | applying migrations
+migrate-1  | migrations done
+app-1      | warming cache
+[exit 0]
+
+$ docker image ls batch1-app --format '{{.Repository}}:{{.Tag}}'
+batch1-app:1.0
+[exit 0]
+
+$ docker compose -p batch1 down
+ Container batch1-app-1  Stopping
+ Container batch1-app-1  Stopped
+ Container batch1-app-1  Removing
+ Container batch1-app-1  Removed
+ Container batch1-migrate-1  Stopping
+ Container batch1-migrate-1  Stopped
+ Container batch1-migrate-1  Removing
+ Container batch1-migrate-1  Removed
+ Network batch1_default  Removing
+ Network batch1_default  Removed
+[exit 0]
+
+# the old top-level version key
+
+$ docker compose -f old-compose.yaml config -q
+time="2026-11-05T13:06:58Z" level=warning msg="/tmp/tmp.7TZ517LgXT/old-compose.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[exit 0]
+
+# 5. clear a json-file log
+
+$ docker run -d --name logs-demo alpine:3.22 sh -c 'i=0; while true; do i=$((i+1)); echo line $i; sleep 0.01; done'
+d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595
+[exit 0]
+
+$ docker inspect -f '{{.HostConfig.LogConfig.Type}}' logs-demo
+json-file
+[exit 0]
+
+$ LOG=$(docker inspect -f '{{.LogPath}}' logs-demo); echo $LOG
+/var/lib/docker/containers/d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595/d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595-json.log
+[exit 0]
+
+$ sudo du -h "$(docker inspect -f '{{.LogPath}}' logs-demo)"
+40K	/var/lib/docker/containers/d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595/d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595-json.log
+[exit 0]
+
+$ sudo truncate -s 0 "$(docker inspect -f '{{.LogPath}}' logs-demo)"
+[exit 0]
+
+$ sudo du -h "$(docker inspect -f '{{.LogPath}}' logs-demo)"
+8.0K	/var/lib/docker/containers/d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595/d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595-json.log
+[exit 0]
+
+$ docker logs --tail 2 logs-demo
+[exit 0]
+
+# deleting the file instead
+
+$ sudo rm "$(docker inspect -f '{{.LogPath}}' logs-demo)"
+[exit 0]
+
+$ docker logs --tail 2 logs-demo
+error from daemon in stream: Error grabbing logs: open /var/lib/docker/containers/d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595/d1652fc5b8c7ac29a258795b55a86a5ee4c0ed6a56e8a0c00cd437f1272e2595-json.log: no such file or directory
+
+[exit 1]
+
+$ sudo ls -l /proc/$(pidof dockerd)/fd | grep -c 'json.log (deleted)'
+1
+[exit 0]
+
+$ docker rm -f logs-demo
+logs-demo
+[exit 0]
+
+# 6. disk space
+
+$ docker info -f '{{.DockerRootDir}}'
+/var/lib/docker
+[exit 0]
+
+$ df -h "$(docker info -f '{{.DockerRootDir}}')"
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/root       145G   59G   86G  41% /
+[exit 0]
+
+$ docker system df
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          13        0         2.728GB   2.728GB (100%)
+Containers      0         0         0B        0B
+Local Volumes   0         0         0B        0B
+Build Cache     18        0         242B      242B
+[exit 0]
+
+$ docker volume create named-data
+named-data
+[exit 0]
+
+$ docker run --name anon -v /data alpine:3.22 true
+[exit 0]
+
+$ docker rm anon
+anon
+[exit 0]
+
+$ docker volume ls --format '{{.Name}}' | awk '{ print (length($0) == 64 ? "(anonymous) " : "") $0 }'
+(anonymous) efd483206a08ac73283cbe3644d0a0d51749be22987798c930fa4822536c340d
+named-data
+[exit 0]
+
+$ docker system prune -f --volumes
+Deleted Networks:
+batch1-net
+
+Deleted Volumes:
+efd483206a08ac73283cbe3644d0a0d51749be22987798c930fa4822536c340d
+
+Deleted build cache objects:
+4hx3h32uh3ubhxuingn4aonqc
+d7mzbi8vv8d05dfabf4ddbxxx
+s1pjdw3b75hcwd03fzjggee1u
+8ixuv4myhvnkrkhztl2dxcb4k
+96ogsdryhhsp3i5yppojcwhb2
+bpoyjx3k5nvejbfsxyd2skxhb
+
+Total reclaimed space: 242B
+[exit 0]
+
+$ docker volume ls --format '{{.Name}}' | grep -c . ; docker volume ls --format '{{.Name}}' | grep named-data
+1
+named-data
+[exit 0]
+
+$ docker builder prune -f
+Total:	0B
+[exit 0]
+
+# 7. push to a private registry
+
+$ docker run -d --name registry -p 127.0.0.1:5000:5000 registry:3
+Unable to find image 'registry:3' locally
+3: Pulling from library/registry
+7b229517ed22: Already exists
+9cf9c5d068e4: Pulling fs layer
+30513d5b3b2d: Pulling fs layer
+7a0bafd2eac6: Pulling fs layer
+b6d795448ea0: Pulling fs layer
+b6d795448ea0: Waiting
+7a0bafd2eac6: Download complete
+9cf9c5d068e4: Download complete
+30513d5b3b2d: Download complete
+9cf9c5d068e4: Pull complete
+b6d795448ea0: Verifying Checksum
+b6d795448ea0: Download complete
+30513d5b3b2d: Pull complete
+7a0bafd2eac6: Pull complete
+b6d795448ea0: Pull complete
+Digest: sha256:d4032d4cc323c1731c707931ecada07a53076eac38e3b61ae57533f170f2c6c3
+Status: Downloaded newer image for registry:3
+190f51604a11b34d813f6e4eea49c4fd3fad85d2f656ef0b5d1656db8ab32f19
+[exit 0]
+
+$ docker tag batch1-app:1.0 localhost:5000/team/hello-api:1.0
+[exit 0]
+
+$ docker push -q localhost:5000/team/hello-api:1.0
+localhost:5000/team/hello-api:1.0
+[exit 0]
+
+$ curl -s http://localhost:5000/v2/_catalog
+{"repositories":["team/hello-api"]}
+[exit 0]
+
+$ curl -s http://localhost:5000/v2/team/hello-api/tags/list
+{"name":"team/hello-api","tags":["1.0"]}
+[exit 0]
+
+# a name without the registry host goes to Docker Hub
+
+$ docker tag batch1-app:1.0 team/hello-api:1.0
+[exit 0]
+
+$ docker push team/hello-api:1.0
+The push refers to repository [docker.io/team/hello-api]
+6d0cd918ac13: Preparing
+9bbffd293cf7: Preparing
+2addde02c3f4: Preparing
+322a3b93f345: Preparing
+75c137aedfb2: Preparing
+unauthorized: access token has insufficient scopes
+[exit 1]
+
+# a registry with a password
+
+$ docker run -d --name auth-registry -p 127.0.0.1:5001:5000 -v "/tmp/tmp.7TZ517LgXT/auth":/auth:ro -e REGISTRY_AUTH=htpasswd -e REGISTRY_AUTH_HTPASSWD_REALM=registry -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd registry:3
+946fd1456ac360772400d14062d5a91c314f154841a624d6739ed329f26b03bb
+[exit 0]
+
+$ docker tag batch1-app:1.0 localhost:5001/team/hello-api:1.0
+[exit 0]
+
+$ docker push localhost:5001/team/hello-api:1.0
+The push refers to repository [localhost:5001/team/hello-api]
+6d0cd918ac13: Preparing
+9bbffd293cf7: Preparing
+2addde02c3f4: Preparing
+322a3b93f345: Preparing
+75c137aedfb2: Preparing
+no basic auth credentials
+[exit 1]
+
+$ echo s3cret | docker login localhost:5001 -u ci-bot --password-stdin
+
+WARNING! Your credentials are stored unencrypted in '/home/runner/.docker/config.json'.
+Configure a credential helper to remove this warning. See
+https://docs.docker.com/go/credential-store/
+
+Login Succeeded
+[exit 0]
+
+$ docker push -q localhost:5001/team/hello-api:1.0
+localhost:5001/team/hello-api:1.0
+[exit 0]
+
+$ jq '.auths | keys' ~/.docker/config.json; jq -r '.auths["localhost:5001"].auth' ~/.docker/config.json | base64 -d; echo
+[
+  "https://index.docker.io/v1/",
+  "localhost:5001"
+]
+ci-bot:s3cret
+[exit 0]
+
+$ docker logout localhost:5001
+Removing login credentials for localhost:5001
+[exit 0]

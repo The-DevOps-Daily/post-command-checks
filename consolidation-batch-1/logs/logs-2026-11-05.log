@@ -1,0 +1,81 @@
+
+$ docker version --format 'engine {{.Server.Version}}'
+engine 28.0.4
+[exit 0]
+
+$ docker run -d --name logs-demo alpine:3.22 sh -c 'i=0; while true; do i=$((i+1)); echo line $i; sleep 0.01; done'
+Unable to find image 'alpine:3.22' locally
+3.22: Pulling from library/alpine
+63e7e49699e8: Pulling fs layer
+63e7e49699e8: Verifying Checksum
+63e7e49699e8: Download complete
+63e7e49699e8: Pull complete
+Digest: sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
+Status: Downloaded newer image for alpine:3.22
+edcdb598f5e17842ffa000641ae660f7fb8e6417a40bf46febeec04efeef2c18
+[exit 0]
+
+$ docker logs logs-demo | wc -l
+467
+[exit 0]
+
+$ sudo stat -c 'size=%s bytes, blocks=%b' "$(logpath logs-demo)"
+size=36980 bytes, blocks=80
+[exit 0]
+
+$ sudo truncate -s 0 "$(logpath logs-demo)"
+[exit 0]
+
+$ sudo stat -c 'size=%s bytes, blocks=%b' "$(logpath logs-demo)"
+size=22169 bytes, blocks=48
+[exit 0]
+
+$ sudo head -c 120 "$(logpath logs-demo)" | od -c | head -3
+0000000   {   "   l   o   g   "   :   "   l   i   n   e       4   7   4
+0000020   \   n   "   ,   "   s   t   r   e   a   m   "   :   "   s   t
+0000040   d   o   u   t   "   ,   "   t   i   m   e   "   :   "   2   0
+[exit 0]
+
+$ docker logs logs-demo | wc -l
+285
+[exit 0]
+
+$ docker logs --tail 2 logs-demo
+[exit 0]
+
+$ docker logs --since 2s logs-demo | tail -2
+line 1215
+line 1216
+[exit 0]
+
+# restart the container
+
+$ docker restart logs-demo
+logs-demo
+[exit 0]
+
+$ docker logs logs-demo | wc -l
+1863
+[exit 0]
+
+$ docker logs --tail 2 logs-demo
+line 190
+line 191
+[exit 0]
+
+# a capped json-file log rotates instead
+
+$ docker run -d --name logs-capped --log-opt max-size=1m --log-opt max-file=2 alpine:3.22 sh -c 'i=0; while true; do i=$((i+1)); echo line $i padding-padding-padding-padding-padding-padding; done'
+b496209d7b90dc06ebc76cf06cb0529012dea712018d7063491d042c932b839d
+[exit 0]
+
+$ sudo ls -l $(dirname "$(logpath logs-capped)") | grep json
+-rw-r----- 1 root root  228393 Nov  5 13:09 b496209d7b90dc06ebc76cf06cb0529012dea712018d7063491d042c932b839d-json.log
+-rw-r----- 1 root root 1000130 Nov  5 13:09 b496209d7b90dc06ebc76cf06cb0529012dea712018d7063491d042c932b839d-json.log.1
+-rw------- 1 root root    2902 Nov  5 13:09 config.v2.json
+-rw------- 1 root root    1507 Nov  5 13:09 hostconfig.json
+[exit 0]
+
+$ docker logs --tail 1 logs-capped
+line 2865051 padding-padding-padding-padding-padding-padding
+[exit 0]

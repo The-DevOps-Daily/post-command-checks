@@ -1,0 +1,213 @@
+
+$ kind version
+kind v0.33.0 go1.26.7 linux/amd64
+[exit 0]
+
+$ kind create cluster --name batch1 --wait 120s
+Creating cluster "batch1" ...
+ • Ensuring node image (kindest/node:v1.37.0) 🖼️  ...
+ ✓ Ensuring node image (kindest/node:v1.37.0) 🖼️
+ • Preparing nodes 📦   ...
+ ✓ Preparing nodes 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+ • Waiting ≤ 2m0s for control-plane = Ready ⏳  ...
+ ✓ Waiting ≤ 2m0s for control-plane = Ready ⏳
+ • Ready after 17s 💚
+Set kubectl context to "kind-batch1"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-batch1
+
+Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
+[exit 0]
+
+$ kubectl version
+Client Version: v1.37.1
+Kustomize Version: v5.8.1
+Server Version: v1.37.0
+[exit 0]
+
+# 1. a namespace stuck in Terminating
+
+$ kubectl create namespace demo
+namespace/demo created
+[exit 0]
+
+$ kubectl -n demo create configmap app-config --from-literal=mode=prod
+configmap/app-config created
+[exit 0]
+
+$ kubectl -n demo patch configmap app-config --type=merge -p '{"metadata":{"finalizers":["example.com/cleanup"]}}'
+configmap/app-config patched
+[exit 0]
+
+$ kubectl delete namespace demo --wait=false
+namespace "demo" deleted
+[exit 0]
+
+$ kubectl get namespace demo
+NAME   STATUS        AGE
+demo   Terminating   10s
+[exit 0]
+
+$ kubectl get namespace demo -o jsonpath='{range .status.conditions[*]}{.type}={.status}: {.message}{"\n"}{end}'
+NamespaceDeletionDiscoveryFailure=False: All resources successfully discovered
+NamespaceDeletionGroupVersionParsingFailure=False: All legacy kube types successfully parsed
+NamespaceDeletionContentFailure=False: All content successfully deleted, may be waiting on finalization
+NamespaceContentRemaining=True: Some resources are remaining: configmaps. has 1 resource instances
+NamespaceFinalizersRemaining=True: Some content in the namespace has finalizers remaining: example.com/cleanup in 1 resource instances
+[exit 0]
+
+$ kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n demo
+NAME                   DATA   AGE
+configmap/app-config   1      11s
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+[exit 0]
+
+# without --wait=false, this command waits forever: it timed out our first run
+
+$ kubectl delete namespace demo --force --grace-period=0 --wait=false
+Warning: Immediate deletion does not wait for confirmation that the running resource has been terminated. The resource may continue to run on the cluster indefinitely.
+namespace "demo" force deleted
+[exit 0]
+
+$ kubectl get namespace demo
+NAME   STATUS        AGE
+demo   Terminating   18s
+[exit 0]
+
+$ kubectl -n demo patch configmap app-config --type=json -p '[{"op":"remove","path":"/metadata/finalizers"}]'
+configmap/app-config patched
+[exit 0]
+
+$ kubectl wait --for=delete namespace/demo --timeout=60s
+namespace/demo condition met
+[exit 0]
+
+$ kubectl get namespace demo
+Error from server (NotFound): namespaces "demo" not found
+[exit 1]
+
+$ kubectl get apiservices | awk 'NR == 1 || $3 != "True"'
+NAME                              SERVICE   AVAILABLE   AGE
+[exit 0]
+
+# the finalize subresource, and what it leaves behind
+
+$ kubectl create namespace demo2
+namespace/demo2 created
+[exit 0]
+
+$ kubectl -n demo2 create configmap app-config --from-literal=mode=prod
+configmap/app-config created
+[exit 0]
+
+$ kubectl -n demo2 patch configmap app-config --type=merge -p '{"metadata":{"finalizers":["example.com/cleanup"]}}'
+configmap/app-config patched
+[exit 0]
+
+$ kubectl delete namespace demo2 --wait=false
+namespace "demo2" deleted
+[exit 0]
+
+$ kubectl get namespace demo2 -o json | jq '.spec.finalizers = []' | kubectl replace --raw /api/v1/namespaces/demo2/finalize -f - | jq -r '.status.phase'
+Terminating
+[exit 0]
+
+$ kubectl wait --for=delete namespace/demo2 --timeout=60s
+[exit 0]
+
+$ kubectl create namespace demo2
+namespace/demo2 created
+[exit 0]
+
+$ kubectl -n demo2 get configmap app-config -o jsonpath='{.metadata.finalizers}'
+["example.com/cleanup"][exit 0]
+
+$ kubectl -n demo2 patch configmap app-config --type=json -p '[{"op":"remove","path":"/metadata/finalizers"}]'
+configmap/app-config patched
+[exit 0]
+
+$ kubectl delete namespace demo2
+namespace "demo2" deleted
+[exit 0]
+
+# 2. Service ports
+
+$ kubectl create deployment web --image=nginx:1.30 --port=80
+deployment.apps/web created
+[exit 0]
+
+$ kubectl rollout status deployment/web --timeout=120s
+Waiting for deployment "web" rollout to finish: 0 of 1 updated replicas are available...
+deployment "web" successfully rolled out
+[exit 0]
+
+$ kubectl apply -f svc.yaml
+service/web created
+[exit 0]
+
+$ kubectl get service web -o jsonpath='port={.spec.ports[0].port} targetPort={.spec.ports[0].targetPort}{"\n"}'
+port=80 targetPort=80
+[exit 0]
+
+$ kubectl apply -f svc-lb.yaml
+service/web-lb created
+service/web-lb-no-nodeport created
+[exit 0]
+
+$ kubectl get services web web-lb web-lb-no-nodeport
+NAME                 TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE
+web                  ClusterIP      10.96.30.237   <none>        80/TCP         0s
+web-lb               LoadBalancer   10.96.16.220   <pending>     80:30636/TCP   0s
+web-lb-no-nodeport   LoadBalancer   10.96.75.160   <pending>     80/TCP         0s
+[exit 0]
+
+$ kubectl run probe --image=curlimages/curl:8.23.0 --restart=Never --rm -i --quiet -- curl -s -o /dev/null -w '%{http_code}\n' http://web
+200
+[exit 0]
+
+$ kubectl delete -f svc.yaml -f svc-lb.yaml
+service "web" deleted from default namespace
+service "web-lb" deleted from default namespace
+service "web-lb-no-nodeport" deleted from default namespace
+[exit 0]
+
+$ kubectl delete deployment web
+deployment.apps "web" deleted from default namespace
+[exit 0]
+
+# 3. a failing init container
+
+$ kubectl apply -f init.yaml
+pod/init-fails created
+[exit 0]
+
+$ kubectl get pod init-fails
+NAME         READY   STATUS       RESTARTS      AGE
+init-fails   0/1     Init:Error   2 (38s ago)   40s
+[exit 0]
+
+$ kubectl logs init-fails
+Defaulted container "app" out of: app, wait-for-db (init)
+Error from server (BadRequest): container "app" in pod "init-fails" is waiting to start: PodInitializing
+[exit 1]
+
+$ kubectl logs init-fails -c wait-for-db
+db:5432 not reachable
+[exit 0]
+
+$ kubectl get pod init-fails -o jsonpath='{.status.initContainerStatuses[0].lastState.terminated.exitCode}{"\n"}'
+1
+[exit 0]
+
+$ kubectl delete pod init-fails --wait=false
+pod "init-fails" deleted from default namespace
+[exit 0]

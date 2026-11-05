@@ -1,0 +1,82 @@
+﻿2026-11-05T13:06:12.8576624Z ##[group]Run cd "consolidation-batch-1"
+[36;1mcd "consolidation-batch-1"[0m
+[36;1mbash "kind.sh" 2>&1 | tee "$GITHUB_WORKSPACE/output.log"[0m
+shell: /usr/bin/bash -e {0}
+##[endgroup]
+
+$ kind version
+kind v0.33.0 go1.26.7 linux/amd64
+[exit 0]
+
+$ kind create cluster --name batch1 --wait 120s
+Creating cluster "batch1" ...
+ • Ensuring node image (kindest/node:v1.37.0) 🖼️  ...
+ ✓ Ensuring node image (kindest/node:v1.37.0) 🖼️
+ • Preparing nodes 📦   ...
+ ✓ Preparing nodes 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+ • Waiting ≤ 2m0s for control-plane = Ready ⏳  ...
+ ✓ Waiting ≤ 2m0s for control-plane = Ready ⏳
+ • Ready after 18s 💚
+Set kubectl context to "kind-batch1"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-batch1
+
+Have a nice day! 👋
+[exit 0]
+
+$ kubectl version
+Client Version: v1.37.1
+Kustomize Version: v5.8.1
+Server Version: v1.37.0
+[exit 0]
+
+# 1. a namespace stuck in Terminating
+
+$ kubectl create namespace demo
+namespace/demo created
+[exit 0]
+
+$ kubectl -n demo create configmap app-config --from-literal=mode=prod
+configmap/app-config created
+[exit 0]
+
+$ kubectl -n demo patch configmap app-config --type=merge -p '{"metadata":{"finalizers":["example.com/cleanup"]}}'
+configmap/app-config patched
+[exit 0]
+
+$ kubectl delete namespace demo --wait=false
+namespace "demo" deleted
+[exit 0]
+
+$ kubectl get namespace demo
+NAME   STATUS        AGE
+demo   Terminating   10s
+[exit 0]
+
+$ kubectl get namespace demo -o jsonpath='{range .status.conditions[*]}{.type}={.status}: {.message}{"\n"}{end}'
+NamespaceDeletionDiscoveryFailure=False: All resources successfully discovered
+NamespaceDeletionGroupVersionParsingFailure=False: All legacy kube types successfully parsed
+NamespaceDeletionContentFailure=False: All content successfully deleted, may be waiting on finalization
+NamespaceContentRemaining=True: Some resources are remaining: configmaps. has 1 resource instances
+NamespaceFinalizersRemaining=True: Some content in the namespace has finalizers remaining: example.com/cleanup in 1 resource instances
+[exit 0]
+
+$ kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n demo
+NAME                   DATA   AGE
+configmap/app-config   1      10s
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+[exit 0]
+
+$ kubectl delete namespace demo --force --grace-period=0
+Warning: Immediate deletion does not wait for confirmation that the running resource has been terminated. The resource may continue to run on the cluster indefinitely.
+namespace "demo" force deleted
+##[error]The operation was canceled.

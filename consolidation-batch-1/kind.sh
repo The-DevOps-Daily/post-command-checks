@@ -28,7 +28,9 @@ sleep 10
 run kubectl get namespace demo
 run "kubectl get namespace demo -o jsonpath='{range .status.conditions[*]}{.type}={.status}: {.message}{\"\n\"}{end}'"
 run "kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n demo"
-run kubectl delete namespace demo --force --grace-period=0
+note "without --wait=false, this command waits forever: it timed out our first run"
+run kubectl delete namespace demo --force --grace-period=0 --wait=false
+sleep 5
 run kubectl get namespace demo
 run "kubectl -n demo patch configmap app-config --type=json -p '[{\"op\":\"remove\",\"path\":\"/metadata/finalizers\"}]'"
 run kubectl wait --for=delete namespace/demo --timeout=60s
